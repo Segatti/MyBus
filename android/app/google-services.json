@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "443101330466",
+    "firebase_url": "https://mybus-unifespa.firebaseio.com",
+    "project_id": "mybus-unifespa",
+    "storage_bucket": "mybus-unifespa.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:443101330466:android:ba40a08468f32348505e7b",
+        "android_client_info": {
+          "package_name": "com.unifesspa.mybus"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "443101330466-o50f2pbrpv9o82efpoq0a6gl3kb7lk65.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.unifesspa.mybus",
+            "certificate_hash": "7a15b016eb404d9f7d769a56122393ab5743b5ab"
+          }
+        },
+        {
+          "client_id": "443101330466-ig3ooqs8jndi8cc1ptomcfnc5msckphl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDiQy8W_Ki4erqrsU5BbyyETSoBmKCX5Fs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "443101330466-ig3ooqs8jndi8cc1ptomcfnc5msckphl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
