@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_mapbox_navigation/flutter_mapbox_navigation.dart';
 import 'package:mapbox_gl/mapbox_gl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
@@ -59,6 +61,45 @@ class _MapaState extends State<Mapa> {
     new LatLng(-5.371145, -49.041989),//Bella Florença
     new LatLng(-5.357330, -49.086745) //Shopping
   ];
+
+  String _platformVersion = 'Unknown';
+
+  MapboxNavigation _directions;
+  bool _arrived = false;
+  double _distanceRemaining, _durationRemaining;
+
+  Future<void> initPlatformState() async {
+    // If the widget was removed from the tree while the asynchronous platform
+    // message was in flight, we want to discard the reply rather than calling
+    // setState to update our non-existent appearance.
+    if (!mounted) return;
+
+    _directions = MapboxNavigation(onRouteProgress: (arrived) async {
+      _distanceRemaining = await _directions.distanceRemaining;
+      _durationRemaining = await _directions.durationRemaining;
+
+      setState(() {
+        _arrived = arrived;
+      });
+      if (arrived)
+      {
+        await Future.delayed(Duration(seconds: 3));
+        await _directions.finishNavigation();
+      }
+    });
+
+    String platformVersion;
+    // Platform messages may fail, so we use a try/catch PlatformException.
+    try {
+      platformVersion = await _directions.platformVersion;
+    } on PlatformException {
+      platformVersion = 'Failed to get platform version.';
+    }
+
+    setState(() {
+      _platformVersion = platformVersion;
+    });
+  }
 
   static final LatLng center = LatLng(0, 0);
 
@@ -191,7 +232,17 @@ class _MapaState extends State<Mapa> {
           20
       ),
     ).then(
-      (result)=>print("mapController.animateCamera()")
+      (result) async{
+        final _origin =
+        Location(name: "Minha Localização", latitude: minhaPosicao.latitude, longitude: minhaPosicao.longitude);
+        final _destination = Location(
+            name: "Destino", latitude: pontoProximo.latitude, longitude: pontoProximo.longitude);
+        await _directions.startNavigation(
+            origin: _origin,
+            destination: _destination,
+            mode: NavigationMode.walking,
+            simulateRoute: false, language: "Portuguese", units: VoiceUnits.metric);//tentar language: "pt"
+      }
     );
     print("BuscarPonto() - FIM");
   }
@@ -201,6 +252,7 @@ class _MapaState extends State<Mapa> {
     super.initState();
     _recuperaUltimaLocalizacaoConhecida();
     _adicionarListenerLocalizacao();
+    initPlatformState();
   }
 
   @override
