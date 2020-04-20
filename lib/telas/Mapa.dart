@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,8 @@ import 'package:mapbox_gl/mapbox_gl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:convert/convert.dart';
 
 class Mapa extends StatefulWidget {
   @override
@@ -15,6 +18,10 @@ class Mapa extends StatefulWidget {
 
 class _MapaState extends State<Mapa> {
   _MapaState();
+
+  String _myPoint = "Eu -> Ponto: ∞";
+  String _busPoint = "Ônibus(Oficial) -> Ponto: ∞";
+  double _mySpeed = 1;
 
   static final CameraPosition _kInitialPosition = const CameraPosition(
     target: LatLng(0, 0),
@@ -148,7 +155,7 @@ class _MapaState extends State<Mapa> {
     );
 
     geolocator.getPositionStream( locationOptions ).listen((Position position){
-
+      _mySpeed = position.speed;
       _posicaoCamera = CameraPosition(
           target: LatLng(position.latitude, position.longitude),
           zoom: 15
@@ -189,7 +196,7 @@ class _MapaState extends State<Mapa> {
 
   }
 
-  _calculaDistancia(LatLng A, LatLng B){
+  _calculaDistancia(LatLng A, LatLng B){//Usado para encontrar a parada mais proxima, calcula em linha reta
     double catetoLat = (A.latitude - B.latitude).abs();
     double catetoLng = (A.longitude - B.longitude).abs();
     return sqrt(pow(catetoLat, 2) + pow(catetoLng, 2));
@@ -237,14 +244,56 @@ class _MapaState extends State<Mapa> {
         Location(name: "Minha Localização", latitude: minhaPosicao.latitude, longitude: minhaPosicao.longitude);
         final _destination = Location(
             name: "Destino", latitude: pontoProximo.latitude, longitude: pontoProximo.longitude);
-        await _directions.startNavigation(
-            origin: _origin,
-            destination: _destination,
-            mode: NavigationMode.walking,
-            simulateRoute: false, language: "Portuguese", units: VoiceUnits.metric);//tentar language: "pt"
+//        await _directions.startNavigation(
+//            origin: _origin,
+//            destination: _destination,
+//            mode: NavigationMode.walking,
+//            simulateRoute: false, language: "pt-BR", units: VoiceUnits.metric);//tentar language: "pt"
+        _gerarRota(_origin, _destination);
       }
     );
     print("BuscarPonto() - FIM");
+  }
+
+  _gerarRota(Location minhaPosicao,Location destino) async{
+    print("Gerar Rotas - Inicio");
+    String base_url = 'https://api.mapbox.com/directions/v5/mapbox/walking/';
+    String access_token = 'pk.eyJ1IjoibXlidXNwcm9qZXRvIiwiYSI6ImNrOGk1cHJ5ajAyb28zbm82eGVyeTk5bGUifQ.IxCBJyDSNxbw3ulY0sIyfQ';
+    String url = base_url + minhaPosicao.longitude.toString() + ',' + minhaPosicao.latitude.toString() + ';' + destino.longitude.toString() + ',' + destino.latitude.toString() +
+        '?steps=true' +
+//        '&language=pt-BR' +
+        '&access_token=' + access_token;
+    print(url);
+    http.Response result = await http.get(url);
+    Map<String, dynamic> valor = jsonDecode(result.body);
+    List<dynamic> rotaJSON = valor['routes'][0]['legs'][0]['steps'];
+    List<LatLng> pontosRota = new List();
+    for(int i = 0; i < rotaJSON.length; i++){
+      LatLng aux = LatLng(rotaJSON[i]['maneuver']['location'][1], rotaJSON[i]['maneuver']['location'][0]);
+      pontosRota.add(aux);
+    }
+//    print(pontosRota);
+    double distanciaTotal = 0;
+    for(int i = 0; i < pontosRota.length; i++){
+      if(i == 0) continue;
+      distanciaTotal += calculateDistance(pontosRota[(i-1)], pontosRota[i]);
+    }
+    print("Distancia total é: " + distanciaTotal.toString());
+    double speedKH = _mySpeed;
+    int minutos = (((distanciaTotal*1000)/speedKH)/60).round();
+    setState(() {
+      _myPoint = "Eu -> Ponto: "+ minutos.toString() +" minutos";
+    });
+    print("Gerar Rotas - Fim");
+  }
+
+  double calculateDistance(LatLng origin, LatLng destiny){
+    var p = 0.017453292519943295;
+    var c = cos;
+    var a = 0.5 - c((destiny.latitude - origin.latitude) * p)/2 +
+        c(origin.latitude * p) * c(destiny.latitude * p) *
+            (1 - c((destiny.longitude - origin.longitude) * p))/2;
+    return 12742 * asin(sqrt(a));
   }
 
   @override
@@ -316,7 +365,7 @@ class _MapaState extends State<Mapa> {
                   ),
                   child: Center(
                     child: Text(
-                      "Eu -> Ponto: ∞",
+                      _myPoint,
                       textAlign: TextAlign.center,
                     ),
                   )
@@ -339,7 +388,7 @@ class _MapaState extends State<Mapa> {
                   ),
                   child: Center(
                     child:  Text(
-                        "Ônibus(Oficial) -> Ponto: ∞"
+                        _busPoint
                     )
                   ),
                 ),
