@@ -1,15 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_mapbox_navigation/flutter_mapbox_navigation.dart';
 import 'package:mapbox_gl/mapbox_gl.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:convert/convert.dart';
 
 class Mapa extends StatefulWidget {
   @override
@@ -17,37 +13,38 @@ class Mapa extends StatefulWidget {
 }
 
 class _MapaState extends State<Mapa> {
-  _MapaState();
-
+  //Configurações Gerais
   String _myPoint = "Eu -> Ponto: ∞";
   String _busPoint = "Ônibus(Oficial) -> Ponto: ∞";
   double _mySpeed = 1;
-
-  static final CameraPosition _kInitialPosition = const CameraPosition(
-    target: LatLng(0, 0),
-    zoom: 11.0,
-  );
-
+  bool _gps = false; //Ativa o floating action button
+  bool _timeKey = false;
+  String iconImage = "bus";
+  //Configurações Mapa
   MapboxMapController mapController;
-  CameraPosition _position = _kInitialPosition;
-  bool _isMoving = false;
-  bool _compassEnabled = true;
+  static final CameraPosition _kInitialPosition = const CameraPosition(target: LatLng(0, 0), zoom: 17.0);
+  String _styleString = MapboxStyles.MAPBOX_STREETS;
+  MyLocationTrackingMode _myLocationTrackingMode = MyLocationTrackingMode.Tracking;
   CameraTargetBounds _cameraTargetBounds = CameraTargetBounds.unbounded;
   MinMaxZoomPreference _minMaxZoomPreference = MinMaxZoomPreference.unbounded;
-  String _styleString = MapboxStyles.MAPBOX_STREETS;
+  bool _compassEnabled = true;
+  bool _zoomGesturesEnabled = true;
+  bool _myLocationEnabled = true;
   bool _rotateGesturesEnabled = false;
   bool _scrollGesturesEnabled = false;
   bool _tiltGesturesEnabled = false;
-  bool _zoomGesturesEnabled = true;
-  bool _myLocationEnabled = true;
-  MyLocationTrackingMode _myLocationTrackingMode = MyLocationTrackingMode.Tracking;
-  CameraPosition _posicaoCamera = new CameraPosition(
-    //bearing: 270.0,
-    target: LatLng(0, 0),
-    //tilt: 30.0,
-    zoom: 17.0,
-  );
-  String iconImage = "bus";
+  CameraPosition _myLocal = _kInitialPosition;
+  //Todos os pontos de parada de ônibus
+  List<LatLng> pontos = [
+    new LatLng(-5.350206, -49.093249),//Campus I
+    new LatLng(-5.334712, -49.087594),//Campus II
+    new LatLng(-5.365898, -49.024760),//Campus III
+    new LatLng(-5.357781, -49.079264),//Regional
+    new LatLng(-5.371145, -49.041989),//Bella Florença
+    new LatLng(-5.357330, -49.086745) //Shopping
+  ];
+  List<LatLng> rotaGerada;
+
   //car-11 = azul = taxi lotação(comunidade)
   //car-11 = preto = ônibus(comunidade)
   //car-15 = vermelho = ônibus(Oficial)
@@ -60,61 +57,24 @@ class _MapaState extends State<Mapa> {
 //  $pontos[] = array(-5.371145, -49.041989);//Bella Florença
 //  $pontos[] = array(-5.357330, -49.086745);//Shopping
 
-  List<LatLng> pontos = [
-    new LatLng(-5.350206, -49.093249),//Campus I
-    new LatLng(-5.334712, -49.087594),//Campus II
-    new LatLng(-5.365898, -49.024760),//Campus III
-    new LatLng(-5.357781, -49.079264),//Regional
-    new LatLng(-5.371145, -49.041989),//Bella Florença
-    new LatLng(-5.357330, -49.086745) //Shopping
-  ];
-
-  String _platformVersion = 'Unknown';
-
-  MapboxNavigation _directions;
-  bool _arrived = false;
-  double _distanceRemaining, _durationRemaining;
-
-  Future<void> initPlatformState() async {
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    _directions = MapboxNavigation(onRouteProgress: (arrived) async {
-      _distanceRemaining = await _directions.distanceRemaining;
-      _durationRemaining = await _directions.durationRemaining;
-
-      setState(() {
-        _arrived = arrived;
-      });
-      if (arrived)
-      {
-        await Future.delayed(Duration(seconds: 3));
-        await _directions.finishNavigation();
-      }
-    });
-
-    String platformVersion;
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    try {
-      platformVersion = await _directions.platformVersion;
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
-    }
-
-    setState(() {
-      _platformVersion = platformVersion;
-    });
+  @override
+  void initState() {
+    print("initState() - Inicio");
+    super.initState();
+    _recuperaUltimaLocalizacaoConhecida();
+    _adicionarListenerLocalizacao();
+    print("initState() - Fim");
   }
 
-  static final LatLng center = LatLng(0, 0);
-
   void _onMapCreated(MapboxMapController controller) {
+    print("_onMapCreated() - Inicio");
     mapController = controller;
-    mapController.addListener(_onMapChanged);
-    _extractMapInfo();
-
+    _addMarcador(pontos, controller);
+    print("_onMapCreated() - Fim");
+  }
+  
+  void _addMarcador(List<LatLng> pontos, MapboxMapController controller){
+    print("_addMarcador() - Inicio");
     for(int i = 0; i < pontos.length; i++){
       controller.addSymbol(
         SymbolOptions(
@@ -127,98 +87,44 @@ class _MapaState extends State<Mapa> {
         ),
       );
     }
+    print("_addMarcador() - Fim");
   }
 
-  void _onMapChanged() {
+  void _recuperaUltimaLocalizacaoConhecida() async {
+    print("_recuperaUltimaLocalizacaoConhecida() - Inicio");
+    Position position = await Geolocator().getLastKnownPosition(desiredAccuracy: LocationAccuracy.high);
     setState(() {
-      _extractMapInfo();
-    });
-  }
-
-  void _extractMapInfo() {
-    _position = mapController.cameraPosition;
-    _isMoving = mapController.isCameraMoving;
-  }
-
-  @override
-  void dispose() {
-    mapController.removeListener(_onMapChanged);
-    super.dispose();
-  }
-
-  _adicionarListenerLocalizacao(){
-
-    var geolocator = Geolocator();
-    var locationOptions = LocationOptions(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10
-    );
-
-    geolocator.getPositionStream( locationOptions ).listen((Position position){
-      _mySpeed = position.speed;
-      _posicaoCamera = CameraPosition(
-          target: LatLng(position.latitude, position.longitude),
-          zoom: 15
-      );
-
-      //_movimentarCamera( _posicaoCamera );
-
-    });
-
-  }
-
-  _recuperaUltimaLocalizacaoConhecida() async {
-
-    Position position = await Geolocator()
-        .getLastKnownPosition( desiredAccuracy: LocationAccuracy.high );
-
-    setState(() {
-      if( position != null ){
-        _posicaoCamera = CameraPosition(
+      if(position != null){
+        _myLocal = CameraPosition(
             target: LatLng(position.latitude, position.longitude),
-            zoom: 19
+            zoom: 15
         );
-
-        //_movimentarCamera( _posicaoCamera );
-
       }
     });
-
+    print("_recuperaUltimaLocalizacaoConhecida() - Fim");
   }
 
-  _movimentarCamera( CameraPosition cameraPosition ) async {
-
-    mapController.animateCamera(
-      CameraUpdate.newCameraPosition(
-        cameraPosition
-      ),
-    ).then((result)=>print("mapController.animateCamera()"));
-
+  void _adicionarListenerLocalizacao(){
+    print("_adicionarListenerLocalizacao() - Inicio");
+    var geolocator = Geolocator();
+    var locationOptions = LocationOptions(accuracy: LocationAccuracy.high, distanceFilter: 10);
+    //Função responsavel por atualizar minha localização
+    geolocator.getPositionStream(locationOptions).listen((Position position){
+      setState(() {
+        if(_timeKey) calculaTime(rotaGerada);
+        _mySpeed = position.speed;
+        _myLocal = CameraPosition(
+            target: LatLng(position.latitude, position.longitude),
+            zoom: 15
+        );
+      });
+    });
+    print("_adicionarListenerLocalizacao() - Fim");
   }
 
-  _calculaDistancia(LatLng A, LatLng B){//Usado para encontrar a parada mais proxima, calcula em linha reta
-    double catetoLat = (A.latitude - B.latitude).abs();
-    double catetoLng = (A.longitude - B.longitude).abs();
-    return sqrt(pow(catetoLat, 2) + pow(catetoLng, 2));
-  }
-
-  LatLng _encontrarParadaProxima(){
-    _recuperaUltimaLocalizacaoConhecida();
-    LatLng minhaPosicao = new LatLng(_posicaoCamera.target.latitude, _posicaoCamera.target.longitude);
-    double distancia = 999999999999;
-    int pontoProximo;
-    for(int i = 0; i < pontos.length; i++){
-      if(distancia > _calculaDistancia(minhaPosicao, pontos[i])){
-        distancia = _calculaDistancia(minhaPosicao, pontos[i]);
-        pontoProximo = i;
-      }
-    }
-    return pontos[pontoProximo];
-  }
-
-  _buscarPonto(){
-    print("BuscarPonto()");
-    LatLng minhaPosicao = new LatLng(_posicaoCamera.target.latitude, _posicaoCamera.target.longitude);
+  void _buscarPonto(){
+    print("_buscarPonto() - Inicio");
+    LatLng minhaPosicao = new LatLng(_myLocal.target.latitude, _myLocal.target.longitude);
     LatLng pontoProximo = _encontrarParadaProxima();
     LatLng northeast;
     LatLng southwest;
@@ -229,41 +135,44 @@ class _MapaState extends State<Mapa> {
       northeast = new LatLng(minhaPosicao.latitude, minhaPosicao.longitude);
       southwest = new LatLng(pontoProximo.latitude, pontoProximo.longitude);
     }
-    LatLngBounds pontos = new LatLngBounds(
+    LatLngBounds zoomPontos = new LatLngBounds(
       northeast: northeast,
       southwest: southwest,
     );
     mapController.animateCamera(
-      CameraUpdate.newLatLngBounds(
-          pontos,
-          20
-      ),
-    ).then(
-      (result) async{
-        final _origin =
-        Location(name: "Minha Localização", latitude: minhaPosicao.latitude, longitude: minhaPosicao.longitude);
-        final _destination = Location(
-            name: "Destino", latitude: pontoProximo.latitude, longitude: pontoProximo.longitude);
-//        await _directions.startNavigation(
-//            origin: _origin,
-//            destination: _destination,
-//            mode: NavigationMode.walking,
-//            simulateRoute: false, language: "pt-BR", units: VoiceUnits.metric);//tentar language: "pt"
+      CameraUpdate.newLatLngBounds(zoomPontos, 25),
+    ).then((result) async{
+        final _origin = Location(name: "Minha Localização", latitude: minhaPosicao.latitude, longitude: minhaPosicao.longitude);
+        final _destination = Location(name: "Destino", latitude: pontoProximo.latitude, longitude: pontoProximo.longitude);
         _gerarRota(_origin, _destination);
       }
     );
-    print("BuscarPonto() - FIM");
+    print("_buscarPonto() - Fim");
   }
 
-  _gerarRota(Location minhaPosicao,Location destino) async{
-    print("Gerar Rotas - Inicio");
-    String base_url = 'https://api.mapbox.com/directions/v5/mapbox/walking/';
-    String access_token = 'pk.eyJ1IjoibXlidXNwcm9qZXRvIiwiYSI6ImNrOGk1cHJ5ajAyb28zbm82eGVyeTk5bGUifQ.IxCBJyDSNxbw3ulY0sIyfQ';
-    String url = base_url + minhaPosicao.longitude.toString() + ',' + minhaPosicao.latitude.toString() + ';' + destino.longitude.toString() + ',' + destino.latitude.toString() +
+  LatLng _encontrarParadaProxima(){
+    print("_encontrarParadaProxima() - Inicio");
+    _recuperaUltimaLocalizacaoConhecida();
+    LatLng minhaPosicao = new LatLng(_myLocal.target.latitude, _myLocal.target.longitude);
+    double distancia = 999999999999;
+    int pontoProximo;
+    for(int i = 0; i < pontos.length; i++){
+      if(distancia > _calculaDistancia(minhaPosicao, pontos[i])){
+        distancia = _calculaDistancia(minhaPosicao, pontos[i]);
+        pontoProximo = i;
+      }
+    }
+    print("_encontrarParadaProxima() - Fim");
+    return pontos[pontoProximo];
+  }
+
+  void _gerarRota(Location minhaPosicao,Location destino) async {
+    print("_gerarRota - Inicio");
+    const String URL = 'https://api.mapbox.com/directions/v5/mapbox/walking/';
+    const String access_token = 'pk.eyJ1IjoibXlidXNwcm9qZXRvIiwiYSI6ImNrOGk1cHJ5ajAyb28zbm82eGVyeTk5bGUifQ.IxCBJyDSNxbw3ulY0sIyfQ';
+    String url = URL + minhaPosicao.longitude.toString() + ',' + minhaPosicao.latitude.toString() + ';' + destino.longitude.toString() + ',' + destino.latitude.toString() +
         '?steps=true' +
-//        '&language=pt-BR' +
         '&access_token=' + access_token;
-    print(url);
     http.Response result = await http.get(url);
     Map<String, dynamic> valor = jsonDecode(result.body);
     List<dynamic> rotaJSON = valor['routes'][0]['legs'][0]['steps'];
@@ -272,36 +181,51 @@ class _MapaState extends State<Mapa> {
       LatLng aux = LatLng(rotaJSON[i]['maneuver']['location'][1], rotaJSON[i]['maneuver']['location'][0]);
       pontosRota.add(aux);
     }
-//    print(pontosRota);
+    rotaGerada = pontosRota;
+    calculaTime(rotaGerada);
+    print("_gerarRota - Fim");
+  }
+
+  void calculaTime(List<LatLng> pontosRota){
+    print("calculaTime - Inicio");
     double distanciaTotal = 0;
     for(int i = 0; i < pontosRota.length; i++){
       if(i == 0) continue;
-      distanciaTotal += calculateDistance(pontosRota[(i-1)], pontosRota[i]);
+      distanciaTotal += _calculaDistancia(pontosRota[(i-1)], pontosRota[i]);
     }
     print("Distancia total é: " + distanciaTotal.toString());
     double speedKH = _mySpeed;
-    int minutos = (((distanciaTotal*1000)/speedKH)/60).round();
-    setState(() {
-      _myPoint = "Eu -> Ponto: "+ minutos.toString() +" minutos";
-    });
-    print("Gerar Rotas - Fim");
+    if(speedKH < 0.2){
+      setState(() {
+        _timeKey = true;
+        _myPoint = "Eu -> Ponto: Você está parado!";
+      });
+    }else{
+      int minutos = (((distanciaTotal*1000)/speedKH)/60).round();
+      if(minutos <= 1){
+        setState(() {
+          _timeKey = true;
+          _myPoint = "Eu -> Ponto: menos de 1 minuto";
+        });
+      }else{
+        setState(() {
+          _timeKey = true;
+          _myPoint = "Eu -> Ponto: "+ minutos.toString() +" minutos";
+        });
+      }
+    }
+    print("calculaTime - Fim");
   }
 
-  double calculateDistance(LatLng origin, LatLng destiny){
+  double _calculaDistancia(LatLng origin, LatLng destiny){
+    print("_calculaDistancia - Inicio");
     var p = 0.017453292519943295;
     var c = cos;
     var a = 0.5 - c((destiny.latitude - origin.latitude) * p)/2 +
         c(origin.latitude * p) * c(destiny.latitude * p) *
             (1 - c((destiny.longitude - origin.longitude) * p))/2;
+    print("_calculaDistancia - Fim");
     return 12742 * asin(sqrt(a));
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _recuperaUltimaLocalizacaoConhecida();
-    _adicionarListenerLocalizacao();
-    initPlatformState();
   }
 
   @override
@@ -418,14 +342,38 @@ class _MapaState extends State<Mapa> {
           ],
         ),
       ),
-      floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: 65),
-        child: FloatingActionButton(
-          child: Icon(Icons.directions_bus),
-          onPressed: (){
-
-          },
-        ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: <Widget>[
+          if(_gps) Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: FloatingActionButton(
+              child: Icon(Icons.gps_fixed),
+              onPressed: (){
+                setState(() {
+                  _gps = false;
+                });
+              },
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(bottom: 60),
+            child: Container(
+              height: 70.0,
+              width: 70.0,
+              child: FittedBox(
+                child: FloatingActionButton(
+                  child: Icon(Icons.directions_bus),
+                  onPressed: (){
+                    setState(() {
+                      _gps = true;
+                    });
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
