@@ -22,7 +22,7 @@ class _MapaState extends State<Mapa> {
   String iconImage = "bus";
   //Configurações Mapa
   MapboxMapController mapController;
-  static final CameraPosition _kInitialPosition = const CameraPosition(target: LatLng(0, 0), zoom: 17.0);
+  static final CameraPosition _kInitialPosition = const CameraPosition(target: LatLng(0, 0), zoom: 13.0);
   String _styleString = MapboxStyles.MAPBOX_STREETS;
   MyLocationTrackingMode _myLocationTrackingMode = MyLocationTrackingMode.Tracking;
   CameraTargetBounds _cameraTargetBounds = CameraTargetBounds.unbounded;
@@ -168,21 +168,30 @@ class _MapaState extends State<Mapa> {
 
   void _gerarRota(Location minhaPosicao,Location destino) async {
     print("_gerarRota - Inicio");
+    if(rotaGerada != null) _apagaRota(rotaGerada);//Deletar desenho da rota se existir
     const String URL = 'https://api.mapbox.com/directions/v5/mapbox/walking/';
     const String access_token = 'pk.eyJ1IjoibXlidXNwcm9qZXRvIiwiYSI6ImNrOGk1cHJ5ajAyb28zbm82eGVyeTk5bGUifQ.IxCBJyDSNxbw3ulY0sIyfQ';
     String url = URL + minhaPosicao.longitude.toString() + ',' + minhaPosicao.latitude.toString() + ';' + destino.longitude.toString() + ',' + destino.latitude.toString() +
         '?steps=true' +
         '&access_token=' + access_token;
+    print(url);
     http.Response result = await http.get(url);
     Map<String, dynamic> valor = jsonDecode(result.body);
     List<dynamic> rotaJSON = valor['routes'][0]['legs'][0]['steps'];
+    List<dynamic> rotaAUX = new List();
     List<LatLng> pontosRota = new List();
-    for(int i = 0; i < rotaJSON.length; i++){
-      LatLng aux = LatLng(rotaJSON[i]['maneuver']['location'][1], rotaJSON[i]['maneuver']['location'][0]);
-      pontosRota.add(aux);
+    for(int i = 0; i < rotaJSON.length; i++) {
+      rotaAUX.add(rotaJSON[i]['intersections']);
+    }
+    for(int i = 0; i < rotaAUX.length; i++) {
+      for(int j = 0; j < rotaAUX[i].length; j++){
+        LatLng aux = LatLng(rotaAUX[i][j]['location'][1], rotaAUX[i][j]['location'][0]);
+        pontosRota.add(aux);
+      }
     }
     rotaGerada = pontosRota;
     calculaTime(rotaGerada);
+    _desenhaRota(rotaGerada);
     print("_gerarRota - Fim");
   }
 
@@ -226,6 +235,26 @@ class _MapaState extends State<Mapa> {
             (1 - c((destiny.longitude - origin.longitude) * p))/2;
     print("_calculaDistancia - Fim");
     return 12742 * asin(sqrt(a));
+  }
+
+  void _desenhaRota(List<LatLng> rotaGerada){
+    print("_desenhaRota - Inicio");
+    mapController.addLine(
+      LineOptions(
+        geometry: rotaGerada,
+        lineColor: "#ff0000",
+        lineWidth: 2.0,
+        lineOpacity: 0.5,
+      ),
+    );
+    setState(() {
+      _scrollGesturesEnabled = true;
+    });
+    print("_desenhaRota - Fim");
+  }
+
+  void _apagaRota(List<LatLng> rotaGerada){
+    mapController.clearLines();
   }
 
   @override
