@@ -20,6 +20,8 @@ class _MapaState extends State<Mapa> {
   bool _gps = false; //Ativa o floating action button
   bool _timeKey = false;
   String iconImage = "bus";
+  Color _btnBus = Colors.black54;
+  bool _tipo = false;
   //Configurações Mapa
   MapboxMapController mapController;
   static final CameraPosition _kInitialPosition = const CameraPosition(target: LatLng(0, 0), zoom: 13.0);
@@ -42,6 +44,14 @@ class _MapaState extends State<Mapa> {
     new LatLng(-5.357781, -49.079264),//Regional
     new LatLng(-5.371145, -49.041989),//Bella Florença
     new LatLng(-5.357330, -49.086745) //Shopping
+  ];
+  List<String> nomePontos = [
+    "UNIFESSPA I",
+    "UNIFESSPA II",
+    "UNIFESSPA III",
+    "Hospital Regional",
+    "Bella Florença",
+    "Shopping Pátio"
   ];
   List<LatLng> rotaGerada;
 
@@ -66,6 +76,15 @@ class _MapaState extends State<Mapa> {
     print("initState() - Fim");
   }
 
+  @override
+  void dispose() {
+    print("dispose - Inicio");
+    mapController.clearLines();
+    mapController.clearSymbols();
+    super.dispose();
+    print("dispose - Fim");
+  }
+
   void _onMapCreated(MapboxMapController controller) {
     print("_onMapCreated() - Inicio");
     mapController = controller;
@@ -76,6 +95,7 @@ class _MapaState extends State<Mapa> {
   void _addMarcador(List<LatLng> pontos, MapboxMapController controller){
     print("_addMarcador() - Inicio");
     for(int i = 0; i < pontos.length; i++){
+      String nomeP = nomePontos[i];
       controller.addSymbol(
         SymbolOptions(
           geometry: LatLng(
@@ -84,6 +104,9 @@ class _MapaState extends State<Mapa> {
           ),
           iconImage: iconImage,
           iconSize: 1.5,
+          iconAnchor: 'bottom',
+          textField: nomeP,//lembra de nomear corretamente os pontos!!!
+          textAnchor: 'top'
         ),
       );
     }
@@ -376,13 +399,21 @@ class _MapaState extends State<Mapa> {
         children: <Widget>[
           if(_gps) Padding(
             padding: EdgeInsets.only(bottom: 10),
-            child: FloatingActionButton(
-              child: Icon(Icons.gps_fixed),
-              onPressed: (){
-                setState(() {
-                  _gps = false;
-                });
-              },
+            child: Container(
+              height: 60.0,
+              width: 60.0,
+              child: FittedBox(
+                child: FloatingActionButton(
+                  child: Icon(Icons.cancel),
+                  backgroundColor: Colors.red,
+                  onPressed: (){
+                    setState(() {
+                      _gps = false;
+                      _btnBus = Colors.black54;
+                    });
+                  },
+                ),
+              ),
             ),
           ),
           Padding(
@@ -393,10 +424,80 @@ class _MapaState extends State<Mapa> {
               child: FittedBox(
                 child: FloatingActionButton(
                   child: Icon(Icons.directions_bus),
+                  backgroundColor: _btnBus,
                   onPressed: (){
-                    setState(() {
-                      _gps = true;
-                    });
+                    showDialog(
+                      context: context,
+                      builder: (context){
+                        return StatefulBuilder(
+                          builder: (context, setState){
+                            return AlertDialog(
+                              title: Text(
+                                  'Criar Transporte'
+                              ),
+                              content: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: <Widget>[
+                                    TextField(
+                                      decoration: InputDecoration(
+                                          labelText: 'Nome do transporte'
+                                      ),
+                                      onChanged: (text){
+
+                                      },
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.only(bottom: 10),
+                                      child: Row(
+                                        children: <Widget>[
+                                          Text("Ônibus"),
+                                          Switch(
+                                              value: _tipo,
+                                              onChanged: (bool valor){
+                                                setState(() {
+                                                  _tipo = valor;
+                                                });
+                                              }
+                                          ),
+                                          Text("Taxi Lotação"),
+                                        ],
+                                      ),
+                                    ),
+                                    TextField(
+                                      decoration: InputDecoration(
+                                          labelText: 'Qual rota está fazendo?'
+                                      ),
+                                      onChanged: (text){
+
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              actions: <Widget>[
+                                FlatButton(
+                                  child: Text("Cancelar"),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                                FlatButton(
+                                  child: Text("Criar"),
+                                  onPressed: (){
+                                    //Salvar no banco de dados
+                                    Navigator.pop(context);
+                                    super.setState(() {
+                                      _gps = true;
+                                      _btnBus = Colors.green;
+                                    });
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      }
+                    );
                   },
                 ),
               ),
