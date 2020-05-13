@@ -1,27 +1,34 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mapbox_navigation/flutter_mapbox_navigation.dart';
 import 'package:mapbox_gl/mapbox_gl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:mybus/model/Transporte.dart';
 
 class Mapa extends StatefulWidget {
   @override
   _MapaState createState() => _MapaState();
 }
 
-class _MapaState extends State<Mapa> {
+class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   //Configurações Gerais
   String _myPoint = "Eu -> Ponto: ∞";
   String _busPoint = "Ônibus(Oficial) -> Ponto: ∞";
   double _mySpeed = 1;
   bool _gps = false; //Ativa o floating action button
   bool _timeKey = false;
-  String iconImage = "bus";
+  String iconImage = "";
+  String iconColor = "";
   Color _btnBus = Colors.black54;
+  String _btnCriar = "Criar";
   bool _tipo = false;
+  TextEditingController _nomeBus = TextEditingController();
+  TextEditingController _rotaBus = TextEditingController();
+  bool _transporteON = false;
   //Configurações Mapa
   MapboxMapController mapController;
   static final CameraPosition _kInitialPosition = const CameraPosition(target: LatLng(0, 0), zoom: 13.0);
@@ -54,6 +61,8 @@ class _MapaState extends State<Mapa> {
     "Shopping Pátio"
   ];
   List<LatLng> rotaGerada;
+  List<Transporte> todosTransportes;
+  Map<Symbol, Transporte> listaTransporte = new Map();
 
   //car-11 = azul = taxi lotação(comunidade)
   //car-11 = preto = ônibus(comunidade)
@@ -68,12 +77,29 @@ class _MapaState extends State<Mapa> {
 //  $pontos[] = array(-5.357330, -49.086745);//Shopping
 
   @override
-  void initState() {
+  void initState(){
     print("initState() - Inicio");
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _recuperaUltimaLocalizacaoConhecida();
     _adicionarListenerLocalizacao();
     print("initState() - Fim");
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print("didChangeAppLifecycleState() - Inicio");
+    if(state == AppLifecycleState.resumed){
+      // user returned to our app
+    }else if(state == AppLifecycleState.inactive){
+      // app is inactive
+    }else if(state == AppLifecycleState.paused){
+      // user is about quit our app temporally
+    }else if(state == AppLifecycleState.detached){
+      // app suspended (not used in iOS)
+    }
+//    super.didChangeAppLifecycleState(state);
+    print("didChangeAppLifecycleState() - Fim");
   }
 
   @override
@@ -81,19 +107,22 @@ class _MapaState extends State<Mapa> {
     print("dispose - Inicio");
     mapController.clearLines();
     mapController.clearSymbols();
-    super.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     print("dispose - Fim");
+    super.dispose();
   }
 
   void _onMapCreated(MapboxMapController controller) {
     print("_onMapCreated() - Inicio");
     mapController = controller;
-    _addMarcador(pontos, controller);
+    _addMarcadorPonto(pontos, controller);
+    _addTransporteListen(controller);
     print("_onMapCreated() - Fim");
   }
   
-  void _addMarcador(List<LatLng> pontos, MapboxMapController controller){
+  void _addMarcadorPonto(List<LatLng> pontos, MapboxMapController controller) {
     print("_addMarcador() - Inicio");
+    iconImage = "bus";
     for(int i = 0; i < pontos.length; i++){
       String nomeP = nomePontos[i];
       controller.addSymbol(
@@ -105,12 +134,102 @@ class _MapaState extends State<Mapa> {
           iconImage: iconImage,
           iconSize: 1.5,
           iconAnchor: 'bottom',
-          textField: nomeP,//lembra de nomear corretamente os pontos!!!
+          textField: nomeP,
           textAnchor: 'top'
         ),
       );
     }
     print("_addMarcador() - Fim");
+  }
+
+  void _addTransporteListen(MapboxMapController controller) async{
+    print("_firebaseListen - Inicio");
+    Firestore banco = Firestore.instance;
+    banco.collection('transporte').snapshots().listen(
+        (snapshot){
+          snapshot.documentChanges.forEach(
+              (documentChange) async{//As mudanças são em relação a variavel, não ao banco, ex: no inicio ele considera os dados que estão no banco como se fosse dados novos adicionados, pois são adicionado na varivel snapshot
+                print("documentChange");
+                if (documentChange.type == DocumentChangeType.added){
+                  String id = documentChange.document.documentID;
+                  Map<String, dynamic> dados = documentChange.document.data;
+                  Transporte transporte = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
+                  Symbol symbol = await controller.addSymbol(
+                    SymbolOptions(
+                        geometry: LatLng(
+                          transporte.lat,
+                          transporte.lng,
+                        ),
+                    ),
+                  );
+                  listaTransporte.putIfAbsent(symbol, () => transporte);
+                  print("document: ${documentChange.document.data} added");
+                } else if (documentChange.type == DocumentChangeType.modified) {
+                  String id = documentChange.document.documentID;
+                  Map<String, dynamic> dados = documentChange.document.data;
+                  Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
+                  print('status true');
+                  listaTransporte.forEach((id, transporte){
+                    print('forEach');
+                    if(transporte.id == transporteAux.id){
+                      print('id igual');
+                      String iconText;
+                      if(transporteAux.status){
+                        if(transporteAux.tipo == 'bus'){
+                          iconImage = 'car-15';
+                          iconColor = '#000000';
+                          iconText = transporteAux.nome;
+                        }else{
+                          iconImage = 'car-11';
+                          iconColor = '#054f77';
+                          iconText = transporteAux.nome;
+                        }
+                      }else{
+                        if(transporteAux.tipo == 'bus'){
+                          iconImage = 'none';
+                          iconColor = '#000000';
+                          iconText = '';
+                        }else{
+                          iconImage = 'none';
+                          iconColor = '#054f77';
+                          iconText = '';
+                        }
+                      }
+                      controller.updateSymbol(id, SymbolOptions(
+                          geometry: LatLng(
+                            transporteAux.lat,
+                            transporteAux.lng,
+                          ),
+                          iconImage: iconImage,
+                          iconColor: iconColor,
+                          iconSize: 1.5,
+                          iconAnchor: 'bottom',
+                          textField: iconText,
+                          textAnchor: 'top'
+                      ),);
+                    }
+                  });
+                  print("document: ${documentChange.document.data} modified");
+                } else if (documentChange.type == DocumentChangeType.removed){
+                  String id = documentChange.document.documentID;
+                  Map<String, dynamic> dados = documentChange.document.data;
+                  Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
+                  print(transporteAux);
+                  listaTransporte.forEach((id, transporte){
+                    print('forEach');
+                    if(transporte.id == transporteAux.id){
+                      print('id igual');
+                      controller.removeSymbol(id);
+                      listaTransporte.remove(id);
+                    }
+                  });
+                  print("document: ${documentChange.document.data} removed");
+                }
+              }
+          );
+        }
+    );
+    print("_firebaseListen - Fim");
   }
 
   void _recuperaUltimaLocalizacaoConhecida() async {
@@ -122,6 +241,7 @@ class _MapaState extends State<Mapa> {
             target: LatLng(position.latitude, position.longitude),
             zoom: 15
         );
+        if(_transporteON) _atualizarTransporte();
       }
     });
     print("_recuperaUltimaLocalizacaoConhecida() - Fim");
@@ -140,6 +260,7 @@ class _MapaState extends State<Mapa> {
             target: LatLng(position.latitude, position.longitude),
             zoom: 15
         );
+        if(_transporteON) _atualizarTransporte();
       });
     });
     print("_adicionarListenerLocalizacao() - Fim");
@@ -277,7 +398,44 @@ class _MapaState extends State<Mapa> {
   }
 
   void _apagaRota(List<LatLng> rotaGerada){
+    print("_apagaRota - Inicio");
     mapController.clearLines();
+    print("_apagaRota - Fim");
+  }
+
+  void _criarTransporte(){
+    print("_criarTransporte - Inicio");
+    Transporte transporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _myLocal.target.latitude, _myLocal.target.longitude, true);
+    transporte.create();
+    _transporteON = true;
+    print("_criarTransporte - Fim");
+  }
+
+//  Future _lerTransporte() async{
+//    print("_lerTransporte - Inicio");
+//    Transporte transporte = Transporte('', '', '', '', 0.0, 0.0, false);
+//    List<Transporte> transportes = await transporte.read();
+//    print("_lerTransporte - Fim");
+//    return transportes;
+//  }
+
+  void _atualizarTransporte(){
+    print("_atualizarTransporte - Inicio");
+    Transporte transporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _myLocal.target.latitude, _myLocal.target.longitude, true);
+    Map<String, dynamic> map = {
+      "lat" : _myLocal.target.latitude,
+      "lng" : _myLocal.target.longitude
+    };
+    transporte.update(map);
+    print("_atualizarTransporte - Fim");
+  }
+
+  void _deletarTransporte(){
+    print("_deletarTransporte - Inicio");
+    Transporte transporte = Transporte('', '', '', '', 0, 0, false);
+    _transporteON = false;
+    transporte.delete();
+    print("_deletarTransporte - Fim");
   }
 
   @override
@@ -407,7 +565,9 @@ class _MapaState extends State<Mapa> {
                   child: Icon(Icons.cancel),
                   backgroundColor: Colors.red,
                   onPressed: (){
+                    _deletarTransporte();
                     setState(() {
+                      _btnCriar = "Criar";
                       _gps = false;
                       _btnBus = Colors.black54;
                     });
@@ -444,9 +604,7 @@ class _MapaState extends State<Mapa> {
                                       decoration: InputDecoration(
                                           labelText: 'Nome do transporte'
                                       ),
-                                      onChanged: (text){
-
-                                      },
+                                      controller: _nomeBus,
                                     ),
                                     Padding(
                                       padding: EdgeInsets.only(bottom: 10),
@@ -469,9 +627,7 @@ class _MapaState extends State<Mapa> {
                                       decoration: InputDecoration(
                                           labelText: 'Qual rota está fazendo?'
                                       ),
-                                      onChanged: (text){
-
-                                      },
+                                      controller: _rotaBus,
                                     ),
                                   ],
                                 ),
@@ -482,11 +638,13 @@ class _MapaState extends State<Mapa> {
                                   onPressed: () => Navigator.pop(context),
                                 ),
                                 FlatButton(
-                                  child: Text("Criar"),
+                                  child: Text(_btnCriar),
                                   onPressed: (){
                                     //Salvar no banco de dados
+                                    _criarTransporte();
                                     Navigator.pop(context);
                                     super.setState(() {
+                                      _btnCriar = "Alterar";
                                       _gps = true;
                                       _btnBus = Colors.green;
                                     });
