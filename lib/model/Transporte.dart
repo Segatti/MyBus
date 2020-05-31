@@ -64,42 +64,63 @@ class Transporte{
   String get id => _id;
 
   set id(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _id = value;
   }
 
   String get nome => _nome;
 
   set nome(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _nome = value;
   }
 
   String get tipo => _tipo;
 
   set tipo(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _tipo = value;
   }
 
   String get rota => _rota;
 
   set rota(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _rota = value;
   }
 
   double get lat => _lat;
 
   set lat(double value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _lat = value;
   }
 
   bool get status => _status;
 
   set status(bool value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _status = value;
   }
 
   double get lng => _lng;
 
   set lng(double value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _lng = value;
   }
 

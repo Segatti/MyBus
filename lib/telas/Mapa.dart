@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mapbox_navigation/flutter_mapbox_navigation.dart';
 import 'package:mapbox_gl/mapbox_gl.dart';
@@ -144,6 +145,9 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
   void _addTransporteListen(MapboxMapController controller) async{
     print("_firebaseListen - Inicio");
+    FirebaseAuth user = FirebaseAuth.instance;
+    FirebaseUser usuarioLogado = await user.currentUser();
+    String userID = usuarioLogado.uid;
     Firestore banco = Firestore.instance;
     banco.collection('transporte').snapshots().listen(
         (snapshot){
@@ -152,64 +156,72 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                 print("documentChange");
                 if (documentChange.type == DocumentChangeType.added){
                   String id = documentChange.document.documentID;
-                  Map<String, dynamic> dados = documentChange.document.data;
-                  Transporte transporte = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
-                  Symbol symbol = await controller.addSymbol(
-                    SymbolOptions(
+                  if(id != userID){
+                    Map<String, dynamic> dados = documentChange.document.data;
+                    Transporte transporte = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
+                    Symbol symbol = await controller.addSymbol(
+                      SymbolOptions(
                         geometry: LatLng(
                           transporte.lat,
                           transporte.lng,
                         ),
-                    ),
-                  );
-                  listaTransporte.putIfAbsent(symbol, () => transporte);
-                  print("document: ${documentChange.document.data} added");
+                      ),
+                    );
+                    listaTransporte.putIfAbsent(symbol, () => transporte);
+                    print("document: ${documentChange.document.data} added");
+                  }else{
+                    print("Usuário criou um transporte!");
+                  }
                 } else if (documentChange.type == DocumentChangeType.modified) {
                   String id = documentChange.document.documentID;
-                  Map<String, dynamic> dados = documentChange.document.data;
-                  Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
-                  print('status true');
-                  listaTransporte.forEach((id, transporte){
-                    print('forEach');
-                    if(transporte.id == transporteAux.id){
-                      print('id igual');
-                      String iconText;
-                      if(transporteAux.status){
-                        if(transporteAux.tipo == 'bus'){
-                          iconImage = 'car-15';
-                          iconColor = '#000000';
-                          iconText = transporteAux.nome;
+                  if(id != userID){
+                    Map<String, dynamic> dados = documentChange.document.data;
+                    Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
+                    print('status true');
+                    listaTransporte.forEach((id, transporte){
+                      print('forEach');
+                      if(transporte.id == transporteAux.id){
+                        print('id igual');
+                        String iconText;
+                        if(transporteAux.status){
+                          if(transporteAux.tipo == 'bus'){
+                            iconImage = 'car-15';
+                            iconColor = '#000000';
+                            iconText = transporteAux.nome;
+                          }else{
+                            iconImage = 'car-11';
+                            iconColor = '#054f77';
+                            iconText = transporteAux.nome;
+                          }
                         }else{
-                          iconImage = 'car-11';
-                          iconColor = '#054f77';
-                          iconText = transporteAux.nome;
+                          if(transporteAux.tipo == 'bus'){
+                            iconImage = 'none';
+                            iconColor = '#000000';
+                            iconText = '';
+                          }else{
+                            iconImage = 'none';
+                            iconColor = '#054f77';
+                            iconText = '';
+                          }
                         }
-                      }else{
-                        if(transporteAux.tipo == 'bus'){
-                          iconImage = 'none';
-                          iconColor = '#000000';
-                          iconText = '';
-                        }else{
-                          iconImage = 'none';
-                          iconColor = '#054f77';
-                          iconText = '';
-                        }
+                        controller.updateSymbol(id, SymbolOptions(
+                            geometry: LatLng(
+                              transporteAux.lat,
+                              transporteAux.lng,
+                            ),
+                            iconImage: iconImage,
+                            iconColor: iconColor,
+                            iconSize: 1.5,
+                            iconAnchor: 'bottom',
+                            textField: iconText,
+                            textAnchor: 'top'
+                        ),);
                       }
-                      controller.updateSymbol(id, SymbolOptions(
-                          geometry: LatLng(
-                            transporteAux.lat,
-                            transporteAux.lng,
-                          ),
-                          iconImage: iconImage,
-                          iconColor: iconColor,
-                          iconSize: 1.5,
-                          iconAnchor: 'bottom',
-                          textField: iconText,
-                          textAnchor: 'top'
-                      ),);
-                    }
-                  });
-                  print("document: ${documentChange.document.data} modified");
+                    });
+                    print("document: ${documentChange.document.data} modified");
+                  }else{
+                    print("Usuário alterou um transporte!");
+                  }
                 } else if (documentChange.type == DocumentChangeType.removed){
                   String id = documentChange.document.documentID;
                   Map<String, dynamic> dados = documentChange.document.data;
@@ -392,7 +404,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
       ),
     );
     setState(() {
-      _scrollGesturesEnabled = true;
+      _scrollGesturesEnabled = false;//deixa false para dimuir processamento
     });
     print("_desenhaRota - Fim");
   }
@@ -447,19 +459,19 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
           IconButton(
             icon: Icon(Icons.info_outline),
             onPressed: (){
-
+              Navigator.pushNamed(context, "/info");
             },
           ),
           IconButton(
             icon: Icon(Icons.access_time),
             onPressed: (){
-
+              Navigator.pushNamed(context, "/horarios");
             },
           ),
           IconButton(
             icon: Icon(Icons.email),
             onPressed: (){
-
+              Navigator.pushNamed(context, "/feedback");
             },
           ),
         ],

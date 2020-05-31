@@ -30,6 +30,15 @@ dependencies:
   mapbox_gl: ^0.0.5
   flutter_mapbox_navigation: ^0.0.10
   http: ^0.12.0+4
+  flutter_rating_bar: ^3.0.1+1
+  flutter_launcher_icons: ^0.7.5
+  flutter_isolate: ^1.0.0+13
+  flutter_startup: ^0.0.2
+
+flutter_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "images/logo.png"
 
 dev_dependencies:
   flutter_test:

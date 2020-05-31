@@ -32,11 +32,11 @@ class _CadastroState extends State<Cadastro> {
     String notaBus = _notaOnibus.floor().toString();
 
     //validar campos
-    if( nome.isNotEmpty ){
+    if( nome.trim().isNotEmpty ){
 
-      if( email.isNotEmpty && email.contains("@") ){
+      if( email.trim().isNotEmpty && email.contains("@") ){
 
-        if( senha.isNotEmpty && senha.length > 6 ){
+        if( senha.trim().isNotEmpty && senha.length > 6 ){
 
           if( _qtdOnibus != 0 || _timeOnibus != 0 ){
 

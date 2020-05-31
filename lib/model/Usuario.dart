@@ -42,60 +42,90 @@ class Usuario {
   String get tipoUsuario => _tipoUsuario;
 
   set tipoUsuario(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _tipoUsuario = value;
   }
 
   String get senha => _senha;
 
   set senha(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _senha = value;
   }
 
   String get email => _email;
 
   set email(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _email = value;
   }
 
   String get nome => _nome;
 
   set nome(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _nome = value;
   }
 
   String get idUsuario => _idUsuario;
 
   set idUsuario(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _idUsuario = value;
   }
 
   String get notaOnibus => _notaOnibus;
 
   set notaOnibus(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _notaOnibus = value;
   }
 
   String get timeOnibus => _timeOnibus;
 
   set timeOnibus(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _timeOnibus = value;
   }
 
   String get qtdOnibus => _qtdOnibus;
 
   set qtdOnibus(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _qtdOnibus = value;
   }
 
   String get especial => _especial;
 
   set especial(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _especial = value;
   }
 
   String get app => _app;
 
   set app(String value) {
+    if(value == null) {
+      throw new ArgumentError();
+    }
     _app = value;
   }
 

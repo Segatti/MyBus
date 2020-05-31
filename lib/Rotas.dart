@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:mybus/telas/Cadastro.dart';
+import 'package:mybus/telas/FeedbackNota.dart';
 import 'package:mybus/telas/Home.dart';
+import 'package:mybus/telas/Horarios.dart';
+import 'package:mybus/telas/Info.dart';
 import 'package:mybus/telas/Mapa.dart';
 
 class Rotas {
 
   static Route<dynamic> gerarRotas(RouteSettings settings){
-
     switch( settings.name ){
       case "/" :
         return MaterialPageRoute(
@@ -20,8 +22,20 @@ class Rotas {
         return MaterialPageRoute(
             builder: (_) => Mapa()
         );
+      case "/info" :
+        return MaterialPageRoute(
+            builder: (_) => Info()
+        );
+      case "/horarios" :
+        return MaterialPageRoute(
+            builder: (_) => Horarios()
+        );
+      case "/feedback" :
+        return MaterialPageRoute(
+            builder: (_) => FeedbackNota()
+        );
       default:
-        _erroRota();
+        return _erroRota();
     }
 
   }
