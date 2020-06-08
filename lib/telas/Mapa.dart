@@ -518,28 +518,28 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                 ),
               ),
             ),
-            Positioned(
-              top: 45,
-              left: 0,
-              right: 0,
-              child: Padding(
-                padding: EdgeInsets.all(10),
-                child: Container(
-                  height: 35,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(3),
-                      color: Colors.white
-                  ),
-                  child: Center(
-                    child:  Text(
-                        _busPoint
-                    )
-                  ),
-                ),
-              ),
-            ),
+//            Positioned(
+//              top: 45,
+//              left: 0,
+//              right: 0,
+//              child: Padding(
+//                padding: EdgeInsets.all(10),
+//                child: Container(
+//                  height: 35,
+//                  width: double.infinity,
+//                  decoration: BoxDecoration(
+//                      border: Border.all(color: Colors.grey),
+//                      borderRadius: BorderRadius.circular(3),
+//                      color: Colors.white
+//                  ),
+//                  child: Center(
+//                    child:  Text(
+//                        _busPoint
+//                    )
+//                  ),
+//                ),
+//              ),
+//            ),
             Positioned(
               right: 0,
               left: 0,
