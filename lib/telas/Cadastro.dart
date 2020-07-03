@@ -10,9 +10,9 @@ class Cadastro extends StatefulWidget {
 
 class _CadastroState extends State<Cadastro> {
 
-  TextEditingController _controllerNome = TextEditingController(text: "MyBus");
-  TextEditingController _controllerEmail = TextEditingController(text: "mybus@gmail.com");
-  TextEditingController _controllerSenha = TextEditingController(text: "1234567");
+  TextEditingController _controllerNome = TextEditingController();
+  TextEditingController _controllerEmail = TextEditingController();
+  TextEditingController _controllerSenha = TextEditingController();
   bool _tipoUsuario = false;
   bool _app = false;
   bool _especial = false;
@@ -174,25 +174,25 @@ class _CadastroState extends State<Cadastro> {
                       )
                   ),
                 ),
+//                Padding(
+//                  padding: EdgeInsets.only(bottom: 10),
+//                  child: Row(
+//                    children: <Widget>[
+//                      Text("Usuário"),
+//                      Switch(
+//                          value: _tipoUsuario,
+//                          onChanged: (bool valor){
+//                            setState(() {
+//                              _tipoUsuario = valor;
+//                            });
+//                          }
+//                      ),
+//                      Text("Administrador"),
+//                    ],
+//                  ),
+//                ),
                 Padding(
-                  padding: EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    children: <Widget>[
-                      Text("Usuário"),
-                      Switch(
-                          value: _tipoUsuario,
-                          onChanged: (bool valor){
-                            setState(() {
-                              _tipoUsuario = valor;
-                            });
-                          }
-                      ),
-                      Text("Administrador"),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(bottom: 20),
+                  padding: EdgeInsets.only(bottom: 20, top: 20),
                   child: Text(
                     "------------------ FORMULÁRIO ------------------",
                     textAlign: TextAlign.center,

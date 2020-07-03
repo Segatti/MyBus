@@ -57,7 +57,7 @@ class _InfoState extends State<Info> {
                   _criarLinhaTable("Aluno: Vittor Feitosa, Professores: Nadson e Gleison"),
                   _criarLinhaTable(""),
                   _criarLinhaTable("Objetivo"),
-                  _criarLinhaTable("Este é um projeto da UNIFESSPA que tem como objetivo ser uma alternativa para localizar os transporte público de Marabá - PA, onde qualquer pessoa pode enviar sua localização quando estiver dentro de um ônibus, avisando os demais usuários."),
+                  _criarLinhaTable("Este é um projeto da UNIFESSPA que tem como objetivo ser uma alternativa para localização do transporte público de Marabá - PA, onde qualquer pessoa pode enviar sua localização quando estiver dentro de um ônibus, avisando os demais usuários."),
                   _criarLinhaTable(""),
                   _criarLinhaTable("Tutorial"),
                 ],
