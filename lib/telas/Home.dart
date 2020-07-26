@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:mybus/model/Usuario.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -109,8 +110,14 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    _recuperaUltimaLocalizacaoConhecida();
     _verificarUsuarioLogado();
+  }
 
+  void _recuperaUltimaLocalizacaoConhecida() async {
+    print("_recuperaUltimaLocalizacaoConhecida() - Inicio");
+    Position position = await Geolocator().getLastKnownPosition(desiredAccuracy: LocationAccuracy.high);
+    print("_recuperaUltimaLocalizacaoConhecida() - Fim");
   }
 
   @override
