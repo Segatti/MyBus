@@ -18,7 +18,7 @@ class Mapa extends StatefulWidget {
 class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   //Configurações Gerais
   String _myPoint = "Eu -> Ponto: ∞";
-  String _busPoint = "Ônibus(Oficial) -> Ponto: ∞";
+  //String _busPoint = "Ônibus(Oficial) -> Ponto: ∞";
   double _mySpeed = 1;
   bool _gps = false; //Ativa o floating action button
   bool _timeKey = false;
@@ -64,6 +64,12 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   List<LatLng> rotaGerada;
   List<Transporte> todosTransportes;
   Map<Symbol, Transporte> listaTransporte = new Map();
+  Symbol _selectedSymbol;
+
+  TextEditingController _auxT = TextEditingController();
+  TextEditingController _auxRota = TextEditingController();
+  bool _auxTipo;
+  bool _infoTransporteON;
 
   //car-11 = azul = taxi lotação(comunidade)
   //car-11 = preto = ônibus(comunidade)
@@ -94,10 +100,26 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
       // user returned to our app
     }else if(state == AppLifecycleState.inactive){
       // app is inactive
+      if(_transporteON){
+        _deletarTransporte();
+        setState(() {
+          _btnCriar = "Criar";
+          _gps = false;
+          _btnBus = Colors.black54;
+        });
+      }
     }else if(state == AppLifecycleState.paused){
       // user is about quit our app temporally
     }else if(state == AppLifecycleState.detached){
       // app suspended (not used in iOS)
+      if(_transporteON){
+        _deletarTransporte();
+        setState(() {
+          _btnCriar = "Criar";
+          _gps = false;
+          _btnBus = Colors.black54;
+        });
+      }
     }
 //    super.didChangeAppLifecycleState(state);
     print("didChangeAppLifecycleState() - Fim");
@@ -106,6 +128,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   @override
   void dispose() {
     print("dispose - Inicio");
+    _deletarTransporte();
+    mapController?.onSymbolTapped?.remove(_onSymbolTapped);
     mapController.clearLines();
     mapController.clearSymbols();
     WidgetsBinding.instance.removeObserver(this);
@@ -116,6 +140,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   void _onMapCreated(MapboxMapController controller) {
     print("_onMapCreated() - Inicio");
     mapController = controller;
+    mapController.onSymbolTapped.add(_onSymbolTapped);
     _addMarcadorPonto(pontos, controller);
     _addTransporteListen(controller);
     print("_onMapCreated() - Fim");
@@ -136,11 +161,101 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
           iconSize: 1.5,
           iconAnchor: 'bottom',
           textField: nomeP,
-          textAnchor: 'top'
+          textAnchor: 'top',
         ),
       );
     }
     print("_addMarcador() - Fim");
+  }
+
+  void _onSymbolTapped(Symbol symbol) {
+    if (_selectedSymbol != null) {
+      _updateSelectedSymbol(
+        const SymbolOptions(iconSize: 1.0),
+      );
+    }
+    setState(() {
+      _selectedSymbol = symbol;
+    });
+    _updateSelectedSymbol(
+      SymbolOptions(
+        iconSize: 1.4,
+      ),
+    );
+    if(_selectedSymbol.options.iconImage != 'bus' && _selectedSymbol.options.iconImage != ''){
+      listaTransporte.forEach((symbol, dadosTransporte) {
+        if(symbol.id ==_selectedSymbol.id){
+          _auxTipo = (dadosTransporte.tipo == 'bus')?false:true;
+          _auxT.text = dadosTransporte.nome;
+          _auxRota.text = dadosTransporte.rota;
+          _infoTransporteON = true;
+          showDialog(
+              context: context,
+              builder: (context){
+                return StatefulBuilder(
+                  builder: (context, setState){
+                    return AlertDialog(
+                      title: Text(
+                          'Transporte Info'
+                      ),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            TextField(
+                              decoration: InputDecoration(
+                                  labelText: "Nome do Transporte"
+                              ),
+                              controller: _auxT,
+                              readOnly: true,
+                            ),
+                            Padding(
+                              padding: EdgeInsets.only(bottom: 10),
+                              child: Row(
+                                children: <Widget>[
+                                  Text("Ônibus"),
+                                  Switch(
+                                      value: _auxTipo,
+                                      onChanged: (bool valor){
+                                        //Não vai mudar aqui
+                                      }
+                                  ),
+                                  Text("Taxi Lotação"),
+                                ],
+                              ),
+                            ),
+                            TextField(
+                              decoration: InputDecoration(
+                                  labelText: 'Qual rota está fazendo?'
+                              ),
+                              controller: _auxRota,
+                              readOnly: true,
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: <Widget>[
+                        FlatButton(
+                          child: Text("Fechar"),
+                          onPressed: (){
+                            _infoTransporteON = false;
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                );
+              }
+          );
+        }
+      });
+    }
+  }
+
+  void _updateSelectedSymbol(SymbolOptions changes) {
+    mapController.updateSymbol(_selectedSymbol, changes);
   }
 
   void _addTransporteListen(MapboxMapController controller) async{
@@ -158,6 +273,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                   String id = documentChange.document.documentID;
                   if(id != userID){
                     Map<String, dynamic> dados = documentChange.document.data;
+                    print(dados);
                     Transporte transporte = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
                     Symbol symbol = await controller.addSymbol(
                       SymbolOptions(
@@ -179,7 +295,6 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                     Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
                     print('status true');
                     listaTransporte.forEach((id, transporte){
-                      print('forEach');
                       if(transporte.id == transporteAux.id){
                         print('id igual');
                         String iconText;
@@ -216,9 +331,24 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                             textField: iconText,
                             textAnchor: 'top'
                         ),);
+                        listaTransporte[id] = transporteAux;
                       }
                     });
                     print("document: ${documentChange.document.data} modified");
+//                    listaTransporte.forEach((key, value) {
+//                      print("id:"+key.id+" valor:"+value.toMap().toString());
+//                    });
+                    if(_infoTransporteON){
+                      listaTransporte.forEach((id, transporte) {
+                        if(id.id == _selectedSymbol.id){
+                          setState(() {
+                            _auxT.text = transporte.nome;
+                            _auxTipo = (transporte.tipo == 'bus')? false : true;
+                            _auxRota.text = transporte.rota;
+                          });
+                        }
+                      });
+                    }
                   }else{
                     print("Usuário alterou um transporte!");
                   }
@@ -360,7 +490,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     }
     print("Distancia total é: " + distanciaTotal.toString());
     double speedKH = _mySpeed;
-    if(speedKH < 0.2){
+    if(speedKH < 1.8){//-----------------------------------------Atenção
       setState(() {
         _timeKey = true;
         _myPoint = "Eu -> Ponto: Você está parado!";
@@ -448,6 +578,45 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     _transporteON = false;
     transporte.delete();
     print("_deletarTransporte - Fim");
+  }
+
+  Map<Symbol, Transporte> _verificaBusProximo(){//Verifica se existe bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
+    print("_verificaBusProximo - Inicio");
+    LatLng posicao = _myLocal.target;
+    Map<Symbol, Transporte> _busPerto = _verificaBusON();
+    Map<Symbol, Transporte> _busFiltrado = _buscarBusProximo(_busPerto, 100.00);
+    //Parei aqui
+    print("_verificaBusProximo - Fim");
+  }
+
+  Map<Symbol, Transporte> _verificaBusON(){
+    print("_verificaBusON - Inicio");
+    Map<Symbol, Transporte> transporteAtivo = new Map();
+    listaTransporte.forEach((id, transporte) {
+      if(id.options.iconAnchor != '' && transporte.status){
+        transporteAtivo.putIfAbsent(id, () => transporte);
+      }
+    });
+    print("_verificaBusON - Fim");
+    return transporteAtivo;
+  }
+
+  Map<Symbol, Transporte> _buscarBusProximo(Map<Symbol, Transporte> busList, double raioDistancia){//Verifica os bus dentro do raio em metros(ao redor do user)
+    print("_buscarBusProximo - Inicio");
+    Map<Symbol, Transporte> _busDentroRaio = new Map();
+    busList.forEach((id, transporte) {
+      LatLng auxTransportePoint = new LatLng(transporte.lat, transporte.lng);
+      LatLng auxMyPoint = new LatLng(_myLocal.target.latitude, _myLocal.target.longitude);
+      double _distancia = _calculaDistancia(auxMyPoint, auxTransportePoint);
+      if(_distancia <= raioDistancia){
+        print("Encontrou ônibus próximo!");
+        _busDentroRaio.putIfAbsent(id, () => transporte);
+      }else{
+        print("Ônibus está distante!");
+      }
+    });
+    print("_buscarBusProximo - Fim");
+    return _busDentroRaio;
   }
 
   @override
