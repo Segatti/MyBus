@@ -19,7 +19,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   //Configurações Gerais
   String _myPoint = "Eu -> Ponto: ∞";
   //String _busPoint = "Ônibus(Oficial) -> Ponto: ∞";
-  double _mySpeed = 1;
+  GeoPoint _meuGeoPoint;
+  double _meuSpeed = 1;
   bool _gps = false; //Ativa o floating action button
   bool _timeKey = false;
   String iconImage = "";
@@ -45,31 +46,38 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   bool _tiltGesturesEnabled = false;
   CameraPosition _myLocal = _kInitialPosition;
   //Todos os pontos de parada de ônibus
-  List<LatLng> pontos = [
-    new LatLng(-5.350206, -49.093249),//Campus I
-    new LatLng(-5.334712, -49.087594),//Campus II
-    new LatLng(-5.365898, -49.024760),//Campus III
-    new LatLng(-5.357781, -49.079264),//Regional
-    new LatLng(-5.371145, -49.041989),//Bella Florença
-    new LatLng(-5.357330, -49.086745) //Shopping
-  ];
-  List<String> nomePontos = [
-    "UNIFESSPA I",
-    "UNIFESSPA II",
-    "UNIFESSPA III",
-    "Hospital Regional",
-    "Bella Florença",
-    "Shopping Pátio"
-  ];
-  List<LatLng> rotaGerada;
+  Map<String, dynamic> marcadorParada = new Map();
+  Map<String, dynamic> marcadorSymbolParada = new Map();
+  Map<String, dynamic> marcadorOnibus = new Map();
+  Map<String, dynamic> marcadorSymbolOnibus = new Map();
+  Transporte _busMainFila;
+  Transporte _meuTransporte;
+//    new LatLng(-5.350206, -49.093249),//Campus I
+//    new LatLng(-5.334712, -49.087594),//Campus II
+//    new LatLng(-5.365898, -49.024760),//Campus III
+//    new LatLng(-5.357781, -49.079264),//Regional
+//    new LatLng(-5.371145, -49.041989),//Bella Florença
+//    new LatLng(-5.357330, -49.086745) //Shopping
+
+//  List<String> nomePontos = [
+//    "UNIFESSPA I",
+//    "UNIFESSPA II",
+//    "UNIFESSPA III",
+//    "Hospital Regional",
+//    "Bella Florença",
+//    "Shopping Pátio"
+//  ];
+  List<GeoPoint> rotaGerada;
   List<Transporte> todosTransportes;
-  Map<Symbol, Transporte> listaTransporte = new Map();
+  Map<Symbol, dynamic> listaTransporte = new Map();
   Symbol _selectedSymbol;
 
   TextEditingController _auxT = TextEditingController();
   TextEditingController _auxRota = TextEditingController();
   bool _auxTipo;
   bool _infoTransporteON;
+  bool _filaEspera;
+  bool _busON;
 
   //car-11 = azul = taxi lotação(comunidade)
   //car-11 = preto = ônibus(comunidade)
@@ -141,30 +149,56 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_onMapCreated() - Inicio");
     mapController = controller;
     mapController.onSymbolTapped.add(_onSymbolTapped);
-    _addMarcadorPonto(pontos, controller);
-    _addTransporteListen(controller);
+    _addMarcadorPontoListen(marcadorParada, marcadorSymbolParada, controller);
+    _addMarcadorTransporteListen(marcadorOnibus, marcadorSymbolOnibus, controller);
     print("_onMapCreated() - Fim");
   }
-  
-  void _addMarcadorPonto(List<LatLng> pontos, MapboxMapController controller) {
-    print("_addMarcador() - Inicio");
-    iconImage = "bus";
-    for(int i = 0; i < pontos.length; i++){
-      String nomeP = nomePontos[i];
-      controller.addSymbol(
-        SymbolOptions(
-          geometry: LatLng(
-            pontos[i].latitude,
-            pontos[i].longitude,
-          ),
-          iconImage: iconImage,
-          iconSize: 1.5,
-          iconAnchor: 'bottom',
-          textField: nomeP,
-          textAnchor: 'top',
-        ),
-      );
-    }
+
+  void _addMarcadorPontoListen(Map<String, dynamic> dadosListen, Map<String, dynamic> dadosSymbol, MapboxMapController controller) {
+    print("_addMarcadorPontoListen() - Inicio");
+    Firestore firestore = Firestore.instance;
+    firestore.collection('ponto_onibus').snapshots().listen((snapshot) {
+      snapshot.documentChanges.forEach((documentChange) async {
+        if(documentChange.type == DocumentChangeType.added){//Registro Adicionado
+          String id = documentChange.document.documentID;
+          dadosListen.putIfAbsent(id, () => documentChange.document.data);
+          iconImage = "bus";
+          Symbol symbol = await controller.addSymbol(
+            SymbolOptions(
+              geometry: LatLng(
+                dadosListen[id]['geoPoint'].latitude,
+                dadosListen[id]['geoPoint'].longitude,
+              ),
+              iconImage: iconImage,
+              iconSize: 1.5,
+              iconAnchor: 'bottom',
+              textField: dadosListen[id]['nome'],
+              textAnchor: 'top',
+              textTransform: dadosListen[id]['descricao'],//Isso pode dar problema--------------------------------------------------
+            ),
+          );
+          dadosSymbol.putIfAbsent(id, () => symbol);
+          print("Dado adicionado a lista! ${dadosListen[id]}");
+        }else if(documentChange.type == DocumentChangeType.modified){//Registro Atualizado
+          String id = documentChange.document.documentID;
+          dadosListen[id] = documentChange.document.data;
+          await controller.updateSymbol(
+            dadosSymbol[id],
+            SymbolOptions(
+              textField: dadosListen[id]['nome'],
+              textTransform: dadosListen[id]['descricao'],//Isso pode dar problema--------------------------------------------------
+            ),
+          );
+          print("Dado atualizado na lista! ${dadosListen[id]}");
+        }else if(documentChange.type == DocumentChangeType.removed){//Registro Removido
+          String id = documentChange.document.documentID;
+          await controller.removeSymbol(dadosSymbol[id]);
+          dadosListen.remove(id);
+          dadosSymbol.remove(id);
+          print("Dado removido da lista! ${documentChange.document.data}");
+        }
+      });
+    });
     print("_addMarcador() - Fim");
   }
 
@@ -258,127 +292,185 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     mapController.updateSymbol(_selectedSymbol, changes);
   }
 
-  void _addTransporteListen(MapboxMapController controller) async{
-    print("_firebaseListen - Inicio");
-    FirebaseAuth user = FirebaseAuth.instance;
-    FirebaseUser usuarioLogado = await user.currentUser();
-    String userID = usuarioLogado.uid;
-    Firestore banco = Firestore.instance;
-    banco.collection('transporte').snapshots().listen(
-        (snapshot){
-          snapshot.documentChanges.forEach(
-              (documentChange) async{//As mudanças são em relação a variavel, não ao banco, ex: no inicio ele considera os dados que estão no banco como se fosse dados novos adicionados, pois são adicionado na varivel snapshot
-                print("documentChange");
-                if (documentChange.type == DocumentChangeType.added){
-                  String id = documentChange.document.documentID;
-                  if(id != userID){
-                    Map<String, dynamic> dados = documentChange.document.data;
-                    print(dados);
-                    Transporte transporte = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
-                    Symbol symbol = await controller.addSymbol(
-                      SymbolOptions(
-                        geometry: LatLng(
-                          transporte.lat,
-                          transporte.lng,
-                        ),
-                      ),
-                    );
-                    listaTransporte.putIfAbsent(symbol, () => transporte);
-                    print("document: ${documentChange.document.data} added");
-                  }else{
-                    print("Usuário criou um transporte!");
-                  }
-                } else if (documentChange.type == DocumentChangeType.modified) {
-                  String id = documentChange.document.documentID;
-                  if(id != userID){
-                    Map<String, dynamic> dados = documentChange.document.data;
-                    Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
-                    print('status true');
-                    listaTransporte.forEach((id, transporte){
-                      if(transporte.id == transporteAux.id){
-                        print('id igual');
-                        String iconText;
-                        if(transporteAux.status){
-                          if(transporteAux.tipo == 'bus'){
-                            iconImage = 'car-15';
-                            iconColor = '#000000';
-                            iconText = transporteAux.nome;
-                          }else{
-                            iconImage = 'car-11';
-                            iconColor = '#054f77';
-                            iconText = transporteAux.nome;
-                          }
-                        }else{
-                          if(transporteAux.tipo == 'bus'){
-                            iconImage = 'none';
-                            iconColor = '#000000';
-                            iconText = '';
-                          }else{
-                            iconImage = 'none';
-                            iconColor = '#054f77';
-                            iconText = '';
-                          }
-                        }
-                        controller.updateSymbol(id, SymbolOptions(
-                            geometry: LatLng(
-                              transporteAux.lat,
-                              transporteAux.lng,
-                            ),
-                            iconImage: iconImage,
-                            iconColor: iconColor,
-                            iconSize: 1.5,
-                            iconAnchor: 'bottom',
-                            textField: iconText,
-                            textAnchor: 'top'
-                        ),);
-                        listaTransporte[id] = transporteAux;
-                      }
-                    });
-                    print("document: ${documentChange.document.data} modified");
-//                    listaTransporte.forEach((key, value) {
-//                      print("id:"+key.id+" valor:"+value.toMap().toString());
-//                    });
-                    if(_infoTransporteON){
-                      listaTransporte.forEach((id, transporte) {
-                        if(id.id == _selectedSymbol.id){
-                          setState(() {
-                            _auxT.text = transporte.nome;
-                            _auxTipo = (transporte.tipo == 'bus')? false : true;
-                            _auxRota.text = transporte.rota;
-                          });
-                        }
-                      });
-                    }
-                  }else{
-                    print("Usuário alterou um transporte!");
-                  }
-                } else if (documentChange.type == DocumentChangeType.removed){
-                  String id = documentChange.document.documentID;
-                  Map<String, dynamic> dados = documentChange.document.data;
-                  Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
-                  print(transporteAux);
-                  listaTransporte.forEach((id, transporte){
-                    print('forEach');
-                    if(transporte.id == transporteAux.id){
-                      print('id igual');
-                      controller.removeSymbol(id);
-                      listaTransporte.remove(id);
-                    }
-                  });
-                  print("document: ${documentChange.document.data} removed");
-                }
-              }
+  void _addMarcadorTransporteListen(Map<String, dynamic> dadosListen, Map<String, dynamic> dadosSymbol, MapboxMapController controller) {
+    print("_addMarcador() - Inicio");
+    Firestore firestore = Firestore.instance;
+    firestore.collection('transporte').snapshots().listen((snapshot) {
+      snapshot.documentChanges.forEach((documentChange) async {
+        if(documentChange.type == DocumentChangeType.added){//Registro Adicionado
+          String id = documentChange.document.documentID;
+          dadosListen.putIfAbsent(id, () => documentChange.document.data);
+          iconImage = "";
+          Symbol symbol = await controller.addSymbol(
+            SymbolOptions(
+              geometry: LatLng(
+                dadosListen[id]['geoPoint'].latitude,
+                dadosListen[id]['geoPoint'].longitude,
+              ),
+              iconImage: iconImage,
+              iconSize: 1.5,
+              iconAnchor: 'bottom',
+              textField: dadosListen[id]['nome'],//Lembrar de comentar isso aqui----------------------------------------
+              textAnchor: 'top',
+              textTransform: dadosListen[id]['rota'],//Isso pode dar problema--------------------------------------------------
+            ),
           );
+          dadosSymbol.putIfAbsent(id, () => symbol);
+          print("Dado adicionado a lista! ${dadosListen[id]}");
+        }else if(documentChange.type == DocumentChangeType.modified){//Registro Atualizado
+          String id = documentChange.document.documentID;
+          dadosListen[id] = documentChange.document.data;
+          iconImage = (dadosListen[id]['tipo'] == 'taxi')?'car-11':'car-15';//taxi ou bus
+          await controller.updateSymbol(
+            dadosSymbol[id],
+            SymbolOptions(
+              geometry: LatLng(
+                dadosListen[id]['geoPoint'].latitude,
+                dadosListen[id]['geoPoint'].longitude,
+              ),
+              iconImage: iconImage,
+              iconSize: 1.5,
+              iconAnchor: 'bottom',
+              textField: dadosListen[id]['nome'],
+              textAnchor: 'top',
+              textTransform: dadosListen[id]['rota'],//Isso pode dar problema--------------------------------------------------
+            ),
+          );
+          print("Dado atualizado na lista! ${dadosListen[id]}");
+        }else if(documentChange.type == DocumentChangeType.removed){//Registro Removido
+          String id = documentChange.document.documentID;
+          await controller.removeSymbol(dadosSymbol[id]);
+          dadosListen.remove(id);
+          dadosSymbol.remove(id);
+          print("Dado removido da lista! ${documentChange.document.data}");
         }
-    );
-    print("_firebaseListen - Fim");
+      });
+    });
+    print("_addMarcadorPontoListen() - Fim");
   }
+
+//  void _addTransporteListen(MapboxMapController controller) async{
+//    print("_firebaseListen - Inicio");
+//    FirebaseAuth user = FirebaseAuth.instance;
+//    FirebaseUser usuarioLogado = await user.currentUser();
+//    String userID = usuarioLogado.uid;
+//    Firestore banco = Firestore.instance;
+//    banco.collection('transporte').snapshots().listen(
+//        (snapshot){
+//          snapshot.documentChanges.forEach(
+//              (documentChange) async{//As mudanças são em relação a variavel, não ao banco, ex: no inicio ele considera os dados que estão no banco como se fosse dados novos adicionados, pois são adicionado na varivel snapshot
+//                print("documentChange");
+//                if (documentChange.type == DocumentChangeType.added){
+//                  String id = documentChange.document.documentID;
+//                  if(id != userID){
+//                    Map<String, dynamic> dados = documentChange.document.data;
+//                    print(dados);
+//                    Transporte transporte = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
+//                    Symbol symbol = await controller.addSymbol(
+//                      SymbolOptions(
+//                        geometry: LatLng(
+//                          transporte.lat,
+//                          transporte.lng,
+//                        ),
+//                      ),
+//                    );
+//                    listaTransporte.putIfAbsent(symbol, () => transporte);
+//                    print("document: ${documentChange.document.data} added");
+//                  }else{
+//                    print("Usuário criou um transporte!");
+//                  }
+//                } else if (documentChange.type == DocumentChangeType.modified) {
+//                  String id = documentChange.document.documentID;
+//                  if(id != userID){
+//                    Map<String, dynamic> dados = documentChange.document.data;
+//                    Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
+//                    print('status true');
+//                    listaTransporte.forEach((id, transporte){
+//                      if(transporte.id == transporteAux.id){
+//                        print('id igual');
+//                        String iconText;
+//                        if(transporteAux.status){
+//                          if(transporteAux.tipo == 'bus'){
+//                            iconImage = 'car-15';
+//                            iconColor = '#000000';
+//                            iconText = transporteAux.nome;
+//                          }else{
+//                            iconImage = 'car-11';
+//                            iconColor = '#054f77';
+//                            iconText = transporteAux.nome;
+//                          }
+//                        }else{
+//                          if(transporteAux.tipo == 'bus'){
+//                            iconImage = 'none';
+//                            iconColor = '#000000';
+//                            iconText = '';
+//                          }else{
+//                            iconImage = 'none';
+//                            iconColor = '#054f77';
+//                            iconText = '';
+//                          }
+//                        }
+//                        controller.updateSymbol(id, SymbolOptions(
+//                            geometry: LatLng(
+//                              transporteAux.lat,
+//                              transporteAux.lng,
+//                            ),
+//                            iconImage: iconImage,
+//                            iconColor: iconColor,
+//                            iconSize: 1.5,
+//                            iconAnchor: 'bottom',
+//                            textField: iconText,
+//                            textAnchor: 'top'
+//                        ),);
+//                        listaTransporte[id] = transporteAux;
+//                      }
+//                    });
+//                    print("document: ${documentChange.document.data} modified");
+////                    listaTransporte.forEach((key, value) {
+////                      print("id:"+key.id+" valor:"+value.toMap().toString());
+////                    });
+//                    if(_infoTransporteON){
+//                      listaTransporte.forEach((id, transporte) {
+//                        if(id.id == _selectedSymbol.id){
+//                          setState(() {
+//                            _auxT.text = transporte.nome;
+//                            _auxTipo = (transporte.tipo == 'bus')? false : true;
+//                            _auxRota.text = transporte.rota;
+//                          });
+//                        }
+//                      });
+//                    }
+//                  }else{
+//                    print("Usuário alterou um transporte!");
+//                  }
+//                } else if (documentChange.type == DocumentChangeType.removed){
+//                  String id = documentChange.document.documentID;
+//                  Map<String, dynamic> dados = documentChange.document.data;
+//                  Transporte transporteAux = new Transporte(id, dados['nome'], dados['tipo'], dados['rota'], dados['lat'].toDouble(), dados['lng'].toDouble(), dados['status']);
+//                  print(transporteAux);
+//                  listaTransporte.forEach((id, transporte){
+//                    print('forEach');
+//                    if(transporte.id == transporteAux.id){
+//                      print('id igual');
+//                      controller.removeSymbol(id);
+//                      listaTransporte.remove(id);
+//                    }
+//                  });
+//                  print("document: ${documentChange.document.data} removed");
+//                }
+//              }
+//          );
+//        }
+//    );
+//    print("_firebaseListen - Fim");
+//  }
 
   void _recuperaUltimaLocalizacaoConhecida() async {
     print("_recuperaUltimaLocalizacaoConhecida() - Inicio");
     Position position = await Geolocator().getLastKnownPosition(desiredAccuracy: LocationAccuracy.high);
     setState(() {
       if(position != null){
+        _meuGeoPoint = new GeoPoint(position.latitude, position.longitude);
         _myLocal = CameraPosition(
             target: LatLng(position.latitude, position.longitude),
             zoom: 15
@@ -397,7 +489,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     geolocator.getPositionStream(locationOptions).listen((Position position){
       setState(() {
         if(_timeKey) calculaTime(rotaGerada);
-        _mySpeed = position.speed;
+        _meuSpeed = position.speed;
+        _meuGeoPoint = new GeoPoint(position.latitude, position.longitude);
         _myLocal = CameraPosition(
             target: LatLng(position.latitude, position.longitude),
             zoom: 15
@@ -410,8 +503,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
   void _buscarPonto(){
     print("_buscarPonto() - Inicio");
-    LatLng minhaPosicao = new LatLng(_myLocal.target.latitude, _myLocal.target.longitude);
-    LatLng pontoProximo = _encontrarParadaProxima();
+    GeoPoint minhaPosicao = new GeoPoint(_meuGeoPoint.latitude, _meuGeoPoint.longitude);
+    GeoPoint pontoProximo = _encontrarParadaProxima();
     LatLng northeast;
     LatLng southwest;
     if(minhaPosicao.latitude <= pontoProximo.latitude){
@@ -436,25 +529,25 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_buscarPonto() - Fim");
   }
 
-  LatLng _encontrarParadaProxima(){
+  GeoPoint _encontrarParadaProxima(){
     print("_encontrarParadaProxima() - Inicio");
     _recuperaUltimaLocalizacaoConhecida();
-    LatLng minhaPosicao = new LatLng(_myLocal.target.latitude, _myLocal.target.longitude);
+    GeoPoint minhaPosicao = new GeoPoint(_meuGeoPoint.latitude, _meuGeoPoint.longitude);
     double distancia = 999999999999;
-    int pontoProximo;
-    for(int i = 0; i < pontos.length; i++){
-      if(distancia > _calculaDistancia(minhaPosicao, pontos[i])){
-        distancia = _calculaDistancia(minhaPosicao, pontos[i]);
-        pontoProximo = i;
+    String pontoProximo;
+    marcadorParada.forEach((id, parada) {
+      if(distancia > _calculaDistancia(minhaPosicao, parada['geoPoint'])){
+        distancia = _calculaDistancia(minhaPosicao, parada['geoPoint']);
+        pontoProximo = id;
       }
-    }
+    });
     print("_encontrarParadaProxima() - Fim");
-    return pontos[pontoProximo];
+    return marcadorParada[pontoProximo]['geoPoint'];
   }
 
   void _gerarRota(Location minhaPosicao,Location destino) async {
     print("_gerarRota - Inicio");
-    if(rotaGerada != null) _apagaRota(rotaGerada);//Deletar desenho da rota se existir
+    if(rotaGerada != null) _apagaRota();//Deletar desenho da rota se existir
     const String URL = 'https://api.mapbox.com/directions/v5/mapbox/walking/';
     const String access_token = 'pk.eyJ1IjoibXlidXNwcm9qZXRvIiwiYSI6ImNrOGk1cHJ5ajAyb28zbm82eGVyeTk5bGUifQ.IxCBJyDSNxbw3ulY0sIyfQ';
     String url = URL + minhaPosicao.longitude.toString() + ',' + minhaPosicao.latitude.toString() + ';' + destino.longitude.toString() + ',' + destino.latitude.toString() +
@@ -465,13 +558,13 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     Map<String, dynamic> valor = jsonDecode(result.body);
     List<dynamic> rotaJSON = valor['routes'][0]['legs'][0]['steps'];
     List<dynamic> rotaAUX = new List();
-    List<LatLng> pontosRota = new List();
+    List<GeoPoint> pontosRota = new List();
     for(int i = 0; i < rotaJSON.length; i++) {
       rotaAUX.add(rotaJSON[i]['intersections']);
     }
     for(int i = 0; i < rotaAUX.length; i++) {
       for(int j = 0; j < rotaAUX[i].length; j++){
-        LatLng aux = LatLng(rotaAUX[i][j]['location'][1], rotaAUX[i][j]['location'][0]);
+        GeoPoint aux = new GeoPoint(rotaAUX[i][j]['location'][1], rotaAUX[i][j]['location'][0]);
         pontosRota.add(aux);
       }
     }
@@ -481,19 +574,21 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_gerarRota - Fim");
   }
 
-  void calculaTime(List<LatLng> pontosRota){
+  void calculaTime(List<GeoPoint> pontosRota){
     print("calculaTime - Inicio");
     double distanciaTotal = 0;
+
     for(int i = 0; i < pontosRota.length; i++){
       if(i == 0) continue;
       distanciaTotal += _calculaDistancia(pontosRota[(i-1)], pontosRota[i]);
     }
+
     print("Distancia total é: " + distanciaTotal.toString());
-    double speedKH = _mySpeed;
+    double speedKH = _meuSpeed;
     if(speedKH < 1.8){//-----------------------------------------Atenção
       setState(() {
         _timeKey = true;
-        _myPoint = "Eu -> Ponto: Você está parado!";
+        _myPoint = "Distância total é ${distanciaTotal.floor()*1000} metros";
       });
     }else{
       int minutos = (((distanciaTotal*1000)/speedKH)/60).round();
@@ -512,7 +607,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("calculaTime - Fim");
   }
 
-  double _calculaDistancia(LatLng origin, LatLng destiny){
+  double _calculaDistancia(GeoPoint origin, GeoPoint destiny){
     print("_calculaDistancia - Inicio");
     var p = 0.017453292519943295;
     var c = cos;
@@ -523,11 +618,16 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     return 12742 * asin(sqrt(a));
   }
 
-  void _desenhaRota(List<LatLng> rotaGerada){
+  void _desenhaRota(List<GeoPoint> rotaGerada){
     print("_desenhaRota - Inicio");
+    List<LatLng> rotaGeradaConvertida = new List();
+    for(int i = 0; i < rotaGerada.length; i++){
+      LatLng auxPoint = new LatLng(rotaGerada[i].latitude, rotaGerada[i].longitude);
+      rotaGeradaConvertida.add(auxPoint);
+    }
     mapController.addLine(
       LineOptions(
-        geometry: rotaGerada,
+        geometry: rotaGeradaConvertida,
         lineColor: "#ff0000",
         lineWidth: 2.0,
         lineOpacity: 0.5,
@@ -539,7 +639,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_desenhaRota - Fim");
   }
 
-  void _apagaRota(List<LatLng> rotaGerada){
+  void _apagaRota(){
     print("_apagaRota - Inicio");
     mapController.clearLines();
     print("_apagaRota - Fim");
@@ -547,66 +647,83 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
   void _criarTransporte(){
     print("_criarTransporte - Inicio");
-    Transporte transporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _myLocal.target.latitude, _myLocal.target.longitude, true);
-    transporte.create();
+    _filaEspera = _verificaBusProximo();
+    _meuTransporte = new Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
+    if(!_filaEspera){
+      print("Ônibus ON!!!");
+      _meuTransporte.create();
+      _busON = true;
+    }else{
+      print("Ônibus OFF!!!");
+      _busON = false;
+    }
     _transporteON = true;
     print("_criarTransporte - Fim");
   }
 
-//  Future _lerTransporte() async{
-//    print("_lerTransporte - Inicio");
-//    Transporte transporte = Transporte('', '', '', '', 0.0, 0.0, false);
-//    List<Transporte> transportes = await transporte.read();
-//    print("_lerTransporte - Fim");
-//    return transportes;
-//  }
-
   void _atualizarTransporte(){
     print("_atualizarTransporte - Inicio");
-    Transporte transporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _myLocal.target.latitude, _myLocal.target.longitude, true);
-    Map<String, dynamic> map = {
-      "lat" : _myLocal.target.latitude,
-      "lng" : _myLocal.target.longitude
-    };
-    transporte.update(map);
+    if(_busON){
+      _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
+      _meuTransporte.update();
+    }else{
+      _filaEspera = _verificaBusProximo();
+      if(!_filaEspera){
+        _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
+        _meuTransporte.create();
+        _busON = true;
+      }
+    }
     print("_atualizarTransporte - Fim");
   }
 
   void _deletarTransporte(){
     print("_deletarTransporte - Inicio");
-    Transporte transporte = Transporte('', '', '', '', 0, 0, false);
     _transporteON = false;
-    transporte.delete();
+    print(_meuTransporte.id);
+    _meuTransporte.delete();
+    _busON = false;
     print("_deletarTransporte - Fim");
   }
 
-  Map<Symbol, Transporte> _verificaBusProximo(){//Verifica se existe bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
+  bool _verificaBusProximo(){//Verifica se existe bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
     print("_verificaBusProximo - Inicio");
-    LatLng posicao = _myLocal.target;
-    Map<Symbol, Transporte> _busPerto = _verificaBusON();
-    Map<Symbol, Transporte> _busFiltrado = _buscarBusProximo(_busPerto, 100.00);
-    //Parei aqui
-    print("_verificaBusProximo - Fim");
-  }
-
-  Map<Symbol, Transporte> _verificaBusON(){
-    print("_verificaBusON - Inicio");
-    Map<Symbol, Transporte> transporteAtivo = new Map();
-    listaTransporte.forEach((id, transporte) {
-      if(id.options.iconAnchor != '' && transporte.status){
-        transporteAtivo.putIfAbsent(id, () => transporte);
+    GeoPoint posicao = _meuGeoPoint;
+    Map<String, dynamic> _busPerto = _buscarBusProximo(marcadorOnibus, 50.00);//Pega todos os bus dentro do raio
+    double distancia = 50.00;
+    String idBusProximo;
+    _busPerto.forEach((id, transporte) {//Encontra o bus mais proxima para ser o busMain
+      if(distancia >= _calculaDistancia(posicao, transporte['geoPoint'])){
+        distancia = _calculaDistancia(posicao, transporte['geoPoint']);
+        idBusProximo = id;
       }
     });
-    print("_verificaBusON - Fim");
-    return transporteAtivo;
+
+    print(idBusProximo);
+
+    print("_verificaBusProximo - Fim");
+
+    if(idBusProximo != null && idBusProximo != ''){
+      _busMainFila = new Transporte();
+      _busMainFila.read(idBusProximo);
+    }else{
+      return false;
+    }
+
+    if(_busMainFila.id != null && _busMainFila.id != ''){
+      print("Entrando na fila de espera!");
+      return true;//Se existe um ônibus, então o user não vai ativar o seu bus e entrará na fila de espera
+    }else{
+      return false;
+    }
   }
 
-  Map<Symbol, Transporte> _buscarBusProximo(Map<Symbol, Transporte> busList, double raioDistancia){//Verifica os bus dentro do raio em metros(ao redor do user)
+  Map<String, dynamic> _buscarBusProximo(Map<String, dynamic> busList, double raioDistancia){//Verifica os bus dentro do raio em metros(ao redor do user)
     print("_buscarBusProximo - Inicio");
-    Map<Symbol, Transporte> _busDentroRaio = new Map();
+    Map<String, dynamic> _busDentroRaio = new Map();
     busList.forEach((id, transporte) {
-      LatLng auxTransportePoint = new LatLng(transporte.lat, transporte.lng);
-      LatLng auxMyPoint = new LatLng(_myLocal.target.latitude, _myLocal.target.longitude);
+      GeoPoint auxTransportePoint = transporte['geoPoint'];
+      GeoPoint auxMyPoint = _meuGeoPoint;
       double _distancia = _calculaDistancia(auxMyPoint, auxTransportePoint);
       if(_distancia <= raioDistancia){
         print("Encontrou ônibus próximo!");
