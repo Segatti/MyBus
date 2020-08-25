@@ -645,9 +645,9 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_apagaRota - Fim");
   }
 
-  void _criarTransporte(){
+  Future<void> _criarTransporte() async {
     print("_criarTransporte - Inicio");
-    _filaEspera = _verificaBusProximo();
+    _filaEspera = await _verificaBusProximo();
     _meuTransporte = new Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
     if(!_filaEspera){
       print("Ônibus ON!!!");
@@ -661,13 +661,13 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_criarTransporte - Fim");
   }
 
-  void _atualizarTransporte(){
+  Future<void> _atualizarTransporte() async {
     print("_atualizarTransporte - Inicio");
     if(_busON){
       _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
       _meuTransporte.update();
     }else{
-      _filaEspera = _verificaBusProximo();
+      _filaEspera = await _verificaBusProximo();
       if(!_filaEspera){
         _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
         _meuTransporte.create();
@@ -677,16 +677,16 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_atualizarTransporte - Fim");
   }
 
-  void _deletarTransporte(){
+  Future<void> _deletarTransporte() async {
     print("_deletarTransporte - Inicio");
     _transporteON = false;
     print(_meuTransporte.id);
-    _meuTransporte.delete();
+    await _meuTransporte.delete();
     _busON = false;
     print("_deletarTransporte - Fim");
   }
 
-  bool _verificaBusProximo(){//Verifica se existe bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
+  Future<bool> _verificaBusProximo() async {//Verifica se existe bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
     print("_verificaBusProximo - Inicio");
     GeoPoint posicao = _meuGeoPoint;
     Map<String, dynamic> _busPerto = _buscarBusProximo(marcadorOnibus, 50.00);//Pega todos os bus dentro do raio
@@ -704,15 +704,17 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_verificaBusProximo - Fim");
 
     if(idBusProximo != null && idBusProximo != ''){
+      print("Lendo ônibus proximo...");
       _busMainFila = new Transporte();
-      _busMainFila.read(idBusProximo);
-    }else{
-      return false;
-    }
+      await _busMainFila.read(idBusProximo);
 
-    if(_busMainFila.id != null && _busMainFila.id != ''){
-      print("Entrando na fila de espera!");
-      return true;//Se existe um ônibus, então o user não vai ativar o seu bus e entrará na fila de espera
+      if(_busMainFila.id != null && _busMainFila.id != ''){
+        print("Entrando na fila de espera!");
+        print(_busMainFila.toMap());
+        return true;//Se existe um ônibus, então o user não vai ativar o seu bus e entrará na fila de espera
+      }else{
+        return false;
+      }
     }else{
       return false;
     }
@@ -863,7 +865,9 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                   child: Icon(Icons.cancel),
                   backgroundColor: Colors.red,
                   onPressed: (){
-                    _deletarTransporte();
+                    if(_busON){
+                      _deletarTransporte();
+                    }
                     setState(() {
                       _btnCriar = "Criar";
                       _gps = false;

@@ -71,11 +71,11 @@ class Transporte{
       Map<String, dynamic> dados = await firebase.read('transporte', id);
       print("O transporte foi lido! $dados");
       this.id = id;
-      this.nome = dados['nome'];
-      this.tipo = dados['tipo'];
-      this.rota = dados['rota'];
-      this.geoPoint = dados['geoPoint'];
-      this.timestamp = dados['timeStamp'];
+      this.nome = dados[id]['nome'];
+      this.tipo = dados[id]['tipo'];
+      this.rota = dados[id]['rota'];
+      this.geoPoint = dados[id]['geoPoint'];
+      this.timestamp = dados[id]['timeStamp'];
     }else{
       print("Houve um problema com relação aos parâmetros para ler transportes!");
     }
