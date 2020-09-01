@@ -44,6 +44,7 @@ class PontoBus {
       print("O ponto foi lido! $dados");
       this.id = id;
       this.nome = dados[id]['nome'];
+      this.descricao = dados[id]['descricao'];
       this.geoPoint = dados[id]['geoPoint'];
       this.timestamp = dados[id]['timeStamp'];
     }else{

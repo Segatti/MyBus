@@ -8,6 +8,7 @@ import 'package:mapbox_gl/mapbox_gl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:mybus/model/PontoBus.dart';
 import 'package:mybus/model/Transporte.dart';
 
 class Mapa extends StatefulWidget {
@@ -78,6 +79,22 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   bool _infoTransporteON;
   bool _filaEspera;
   bool _busON;
+
+  IconData _iconGPS = Icons.gps_fixed;
+  Color _colorGPS = Colors.blue;
+
+  //Geral//
+
+  //Ponto de ônibus//
+  TextEditingController _nomePointBus = TextEditingController();
+  TextEditingController _descricaoPointBus = TextEditingController();
+
+  PontoBus _pontoBusMain = PontoBus();
+  String txtPontoBus = "Criar Ponto de Ônibus";
+  String btnPontoBus = 'Criar';
+
+  //Ônibus//
+
 
   //car-11 = azul = taxi lotação(comunidade)
   //car-11 = preto = ônibus(comunidade)
@@ -689,7 +706,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   Future<bool> _verificaBusProximo() async {//Verifica se existe bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
     print("_verificaBusProximo - Inicio");
     GeoPoint posicao = _meuGeoPoint;
-    Map<String, dynamic> _busPerto = _buscarBusProximo(marcadorOnibus, 50.00);//Pega todos os bus dentro do raio
+    Map<String, dynamic> _busPerto = _buscarMarcadorProximo(marcadorOnibus, 50.00);//Pega todos os bus dentro do raio
     double distancia = 50.00;
     String idBusProximo;
     _busPerto.forEach((id, transporte) {//Encontra o bus mais proxima para ser o busMain
@@ -720,22 +737,81 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     }
   }
 
-  Map<String, dynamic> _buscarBusProximo(Map<String, dynamic> busList, double raioDistancia){//Verifica os bus dentro do raio em metros(ao redor do user)
+  Map<String, dynamic> _buscarMarcadorProximo(Map<String, dynamic> marcadorList, double raioDistancia){//Verifica os bus dentro do raio em metros(ao redor do user)
     print("_buscarBusProximo - Inicio");
-    Map<String, dynamic> _busDentroRaio = new Map();
-    busList.forEach((id, transporte) {
+    Map<String, dynamic> _marcadorDentroRaio = new Map();
+    marcadorList.forEach((id, transporte) {
       GeoPoint auxTransportePoint = transporte['geoPoint'];
       GeoPoint auxMyPoint = _meuGeoPoint;
       double _distancia = _calculaDistancia(auxMyPoint, auxTransportePoint);
       if(_distancia <= raioDistancia){
         print("Encontrou ônibus próximo!");
-        _busDentroRaio.putIfAbsent(id, () => transporte);
+        _marcadorDentroRaio.putIfAbsent(id, () => transporte);
       }else{
         print("Ônibus está distante!");
       }
     });
     print("_buscarBusProximo - Fim");
-    return _busDentroRaio;
+    return _marcadorDentroRaio;
+  }
+
+  Future<void> _verificaPontoBusProximo() async {//Verifica se existe ponto de bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
+    print("_verificaPontoBusProximo - Inicio");
+    GeoPoint posicao = _meuGeoPoint;
+    Map<String, dynamic> _pontoBusPerto = _buscarMarcadorProximo(marcadorParada, 50.00);//Pega todos pontos de bus dentro do raio
+    double distancia = 50.00;
+    String idPontoBusProximo;
+    _pontoBusPerto.forEach((id, transporte) {//Encontra o ponto de bus mais proxima para ser o pointBusMain
+      if(distancia >= _calculaDistancia(posicao, transporte['geoPoint'])){
+        distancia = _calculaDistancia(posicao, transporte['geoPoint']);
+        idPontoBusProximo = id;
+      }
+    });
+
+    print(idPontoBusProximo);
+
+    print("Lendo ponto de ônibus proximo...");
+    await _pontoBusMain.read(idPontoBusProximo);
+
+    if(_pontoBusMain.id != null && _pontoBusMain.id != ''){
+      print("Entrando na fila de espera!");
+      print(_pontoBusMain.toMap());
+      setState(() {
+        _nomePointBus.text = _pontoBusMain.nome;
+        _descricaoPointBus.text = _pontoBusMain.descricao;
+      });
+      print("_verificaPontoBusProximo - Fim");
+    }
+  }
+
+  Future<void> _criarPontoBus() async {
+    print("_criarPontoBus - Inicio");
+    PontoBus pontoBus = new PontoBus('', _nomePointBus.text, _descricaoPointBus.text, _meuGeoPoint);
+    await pontoBus.create();
+    print("_criarPontoBus - Fim");
+  }
+
+  Future<void> _atualizarPontoBus() async {
+    print("_atualizarPontoBus - Inicio");
+    if(_busON){
+      _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
+      _meuTransporte.update();
+    }else{
+      _filaEspera = await _verificaBusProximo();
+      if(!_filaEspera){
+        _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
+        _meuTransporte.create();
+        _busON = true;
+      }
+    }
+    print("_atualizarPontoBus - Fim");
+  }
+
+  Future<void> _deletarPontoBus(String id) async {
+    print("_deletarPontoBus - Inicio");
+    PontoBus pontoBus = new PontoBus(id);
+    await pontoBus.delete();
+    print("_deletarPontoBus - Fim");
   }
 
   @override
@@ -855,13 +931,103 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
-          if(_gps) Padding(
+          Padding(//Botão de CRUD do ponto de parada
             padding: EdgeInsets.only(bottom: 10),
             child: Container(
               height: 60.0,
               width: 60.0,
               child: FittedBox(
                 child: FloatingActionButton(
+                  heroTag: 'btnGPS',
+                  child: Icon(_iconGPS),
+                  backgroundColor: _colorGPS,
+                  onPressed: (){
+                    setState(() {
+                      _iconGPS = (_myLocationEnabled)?Icons.gps_off:Icons.gps_fixed;
+                      _colorGPS = (_myLocationEnabled)?Colors.black54:Colors.blue;
+                      _myLocationEnabled = !(_myLocationEnabled);
+                    });
+                  },
+                ),
+              ),
+            ),
+          ),
+          Padding(//Botão de CRUD do ponto de parada
+            padding: EdgeInsets.only(bottom: 10),
+            child: Container(
+              height: 60.0,
+              width: 60.0,
+              child: FittedBox(
+                child: FloatingActionButton(
+                  heroTag: 'btnPoint',
+                  child: Icon(Icons.add_location),
+                  backgroundColor: Colors.amberAccent,
+                  onPressed: (){
+                    _verificaPontoBusProximo();
+                    showDialog(
+                        context: context,
+                        builder: (context){
+                          return StatefulBuilder(
+                            builder: (context, setState){
+                              return AlertDialog(
+                                title: Text(
+                                    txtPontoBus
+                                ),
+                                content: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: <Widget>[
+                                      TextField(
+                                        decoration: InputDecoration(
+                                            labelText: 'Nome do local'
+                                        ),
+                                        controller: _nomePointBus,
+                                      ),
+                                      TextField(
+                                        decoration: InputDecoration(
+                                            labelText: 'Descrição do local ou ponto de referência'
+                                        ),
+                                        controller: _descricaoPointBus,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                actions: <Widget>[
+                                  FlatButton(
+                                    child: Text("Cancelar"),
+                                    onPressed: () => Navigator.pop(context),
+                                  ),
+                                  FlatButton(
+                                    child: Text(btnPontoBus),
+                                    onPressed: (){
+                                      //Salvar no banco de dados
+                                      _criarPontoBus();
+                                      Navigator.pop(context);
+                                      super.setState(() {
+
+                                      });
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        }
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+          if(_gps) Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: Container(
+              height: 50.0,
+              width: 50.0,
+              child: FittedBox(
+                child: FloatingActionButton(
+                  heroTag: 'btnCancelar',
                   child: Icon(Icons.cancel),
                   backgroundColor: Colors.red,
                   onPressed: (){
@@ -881,10 +1047,11 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
           Padding(
             padding: EdgeInsets.only(bottom: 60),
             child: Container(
-              height: 70.0,
-              width: 70.0,
+              height: 60.0,
+              width: 60.0,
               child: FittedBox(
                 child: FloatingActionButton(
+                  heroTag: 'btnBus',
                   child: Icon(Icons.directions_bus),
                   backgroundColor: _btnBus,
                   onPressed: (){

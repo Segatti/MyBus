@@ -18,6 +18,7 @@ class Firebase{
   //Funções Básicas
   Future<String> create(String tabela, Map<String, dynamic> dado, [bool userId, String id]) async{
     String idValor = '';
+    userId ??= false;//Se for null, recebe false!
     if(userId && id == null){
       FirebaseUser firebaseUser = await firebaseAuth.currentUser();
       await firestore.collection(tabela).document(firebaseUser.uid).setData(dado)
