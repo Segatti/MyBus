@@ -92,6 +92,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   PontoBus _pontoBusMain = PontoBus();
   String txtPontoBus = "Criar Ponto de Ônibus";
   String btnPontoBus = 'Criar';
+  bool pontoBusON = false;
 
   //Ônibus//
 
@@ -233,75 +234,141 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
         iconSize: 1.4,
       ),
     );
-    if(_selectedSymbol.options.iconImage != 'bus' && _selectedSymbol.options.iconImage != ''){
-      listaTransporte.forEach((symbol, dadosTransporte) {
-        if(symbol.id ==_selectedSymbol.id){
-          _auxTipo = (dadosTransporte.tipo == 'bus')?false:true;
-          _auxT.text = dadosTransporte.nome;
-          _auxRota.text = dadosTransporte.rota;
-          _infoTransporteON = true;
-          showDialog(
-              context: context,
-              builder: (context){
-                return StatefulBuilder(
-                  builder: (context, setState){
-                    return AlertDialog(
-                      title: Text(
-                          'Transporte Info'
-                      ),
-                      content: SingleChildScrollView(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            TextField(
-                              decoration: InputDecoration(
-                                  labelText: "Nome do Transporte"
-                              ),
-                              controller: _auxT,
-                              readOnly: true,
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(bottom: 10),
-                              child: Row(
-                                children: <Widget>[
-                                  Text("Ônibus"),
-                                  Switch(
-                                      value: _auxTipo,
-                                      onChanged: (bool valor){
-                                        //Não vai mudar aqui
-                                      }
-                                  ),
-                                  Text("Taxi Lotação"),
-                                ],
-                              ),
-                            ),
-                            TextField(
-                              decoration: InputDecoration(
-                                  labelText: 'Qual rota está fazendo?'
-                              ),
-                              controller: _auxRota,
-                              readOnly: true,
-                            ),
-                          ],
+    if(_selectedSymbol.options.iconImage != ''){
+      if(_selectedSymbol.options.iconImage == 'bus'){//Caso clique no ponto de ônibus para obter mais informações
+        marcadorSymbolParada.forEach((id, symbol) {
+          if(_selectedSymbol.id == symbol.id){
+            setState(() {
+              _pontoBusMain.id = id;
+              _nomePointBus.text = marcadorParada[id]['nome'];
+              _descricaoPointBus.text = marcadorParada[id]['descricao'];
+            });
+            showDialog(
+                context: context,
+                builder: (context){
+                  return StatefulBuilder(
+                    builder: (context, setState){
+                      return AlertDialog(
+                        title: Text(
+                            "Alterar Ponto de Ônibus"
                         ),
-                      ),
-                      actions: <Widget>[
-                        FlatButton(
-                          child: Text("Fechar"),
-                          onPressed: (){
-                            _infoTransporteON = false;
-                            Navigator.pop(context);
-                          },
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              TextField(
+                                decoration: InputDecoration(
+                                    labelText: 'Nome do local'
+                                ),
+                                controller: _nomePointBus,
+                              ),
+                              TextField(
+                                decoration: InputDecoration(
+                                    labelText: 'Descrição do local ou ponto de referência'
+                                ),
+                                controller: _descricaoPointBus,
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    );
-                  },
-                );
-              }
-          );
-        }
-      });
+                        actions: <Widget>[
+                          FlatButton(
+                            child: Text('Excluir'),
+                            onPressed: () {
+                              _deletarPontoBus(_pontoBusMain.id);
+                              Navigator.pop(context);
+                            },
+                          ),
+                          FlatButton(
+                            child: Text('Salvar'),
+                            onPressed: (){
+                              //Salvar no banco de dados
+                              _atualizarPontoBus();
+                              Navigator.pop(context);
+                              super.setState(() {
+
+                              });
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+            );
+          }
+        });
+      }else{//Caso clique no transporte para obter mais informações
+        listaTransporte.forEach((symbol, dadosTransporte) {
+          if(symbol.id ==_selectedSymbol.id){
+            _auxTipo = (dadosTransporte.tipo == 'bus')?false:true;
+            _auxT.text = dadosTransporte.nome;
+            _auxRota.text = dadosTransporte.rota;
+            _infoTransporteON = true;
+            showDialog(
+                context: context,
+                builder: (context){
+                  return StatefulBuilder(
+                    builder: (context, setState){
+                      return AlertDialog(
+                        title: Text(
+                            'Transporte Info'
+                        ),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              TextField(
+                                decoration: InputDecoration(
+                                    labelText: "Nome do Transporte"
+                                ),
+                                controller: _auxT,
+                                readOnly: true,
+                              ),
+                              Padding(
+                                padding: EdgeInsets.only(bottom: 10),
+                                child: Row(
+                                  children: <Widget>[
+                                    Text("Ônibus"),
+                                    Switch(
+                                        value: _auxTipo,
+                                        onChanged: (bool valor){
+                                          //Não vai mudar aqui
+                                        }
+                                    ),
+                                    Text("Taxi Lotação"),
+                                  ],
+                                ),
+                              ),
+                              TextField(
+                                decoration: InputDecoration(
+                                    labelText: 'Qual rota está fazendo?'
+                                ),
+                                controller: _auxRota,
+                                readOnly: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                        actions: <Widget>[
+                          FlatButton(
+                            child: Text("Fechar"),
+                            onPressed: (){
+                              _infoTransporteON = false;
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+            );
+          }
+        });
+      }
     }
   }
 
@@ -770,15 +837,29 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
     print(idPontoBusProximo);
 
-    print("Lendo ponto de ônibus proximo...");
-    await _pontoBusMain.read(idPontoBusProximo);
+    if(idPontoBusProximo != null){
+      print("Lendo ponto de ônibus proximo...");
+      await _pontoBusMain.read(idPontoBusProximo);
+      print("Ponto de ônibus: ${_pontoBusMain.toMap()}");
+    }else{
+      _pontoBusMain = new PontoBus();
+    }
 
     if(_pontoBusMain.id != null && _pontoBusMain.id != ''){
-      print("Entrando na fila de espera!");
       print(_pontoBusMain.toMap());
       setState(() {
+        txtPontoBus = "Alterar Ponto de Ônibus";
         _nomePointBus.text = _pontoBusMain.nome;
         _descricaoPointBus.text = _pontoBusMain.descricao;
+        pontoBusON = true;
+      });
+      print("_verificaPontoBusProximo - Fim");
+    }else{
+      setState(() {
+        txtPontoBus = "Criar Ponto de Ônibus";
+        _nomePointBus.text = '';
+        _descricaoPointBus.text = '';
+        pontoBusON = false;
       });
       print("_verificaPontoBusProximo - Fim");
     }
@@ -946,6 +1027,12 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                       _iconGPS = (_myLocationEnabled)?Icons.gps_off:Icons.gps_fixed;
                       _colorGPS = (_myLocationEnabled)?Colors.black54:Colors.blue;
                       _myLocationEnabled = !(_myLocationEnabled);
+                      _scrollGesturesEnabled = !(_scrollGesturesEnabled);
+                      if(_myLocationEnabled){
+                        mapController.moveCamera(
+                          CameraUpdate.newCameraPosition(_myLocal),
+                        );
+                      }
                     });
                   },
                 ),
@@ -962,8 +1049,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                   heroTag: 'btnPoint',
                   child: Icon(Icons.add_location),
                   backgroundColor: Colors.amberAccent,
-                  onPressed: (){
-                    _verificaPontoBusProximo();
+                  onPressed: () async {
+                    await _verificaPontoBusProximo();
                     showDialog(
                         context: context,
                         builder: (context){
@@ -978,6 +1065,13 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: <Widget>[
+                                      if(pontoBusON)Text(
+                                          "OBS: Não é possivel criar um ponto muito proximo de outro!",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.red
+                                          ),
+                                      ),
                                       TextField(
                                         decoration: InputDecoration(
                                             labelText: 'Nome do local'
@@ -995,14 +1089,17 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                 ),
                                 actions: <Widget>[
                                   FlatButton(
-                                    child: Text("Cancelar"),
-                                    onPressed: () => Navigator.pop(context),
+                                    child: (pontoBusON)?Text('Excluir'):Text('Cancelar'),
+                                    onPressed: () {
+                                      if(pontoBusON)_deletarPontoBus(_pontoBusMain.id);
+                                      Navigator.pop(context);
+                                    },
                                   ),
                                   FlatButton(
-                                    child: Text(btnPontoBus),
+                                    child: (pontoBusON)?Text('Salvar'):Text('Criar'),
                                     onPressed: (){
                                       //Salvar no banco de dados
-                                      _criarPontoBus();
+                                      (pontoBusON)?_atualizarPontoBus():_criarPontoBus();
                                       Navigator.pop(context);
                                       super.setState(() {
 
