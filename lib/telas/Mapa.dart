@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mapbox_navigation/flutter_mapbox_navigation.dart';
 import 'package:mapbox_gl/mapbox_gl.dart';
@@ -75,7 +74,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
   TextEditingController _auxT = TextEditingController();
   TextEditingController _auxRota = TextEditingController();
-  bool _auxTipo;
+  TextEditingController _auxTipo = TextEditingController();
   bool _infoTransporteON;
   bool _filaEspera;
   bool _busON;
@@ -95,6 +94,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   bool pontoBusON = false;
 
   //Ônibus//
+  bool changeBus = false;
 
 
   //car-11 = azul = taxi lotação(comunidade)
@@ -188,11 +188,10 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                 dadosListen[id]['geoPoint'].longitude,
               ),
               iconImage: iconImage,
-              iconSize: 1.5,
+              iconSize: 1.3,
               iconAnchor: 'bottom',
               textField: dadosListen[id]['nome'],
               textAnchor: 'top',
-              textTransform: dadosListen[id]['descricao'],//Isso pode dar problema--------------------------------------------------
             ),
           );
           dadosSymbol.putIfAbsent(id, () => symbol);
@@ -204,7 +203,6 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
             dadosSymbol[id],
             SymbolOptions(
               textField: dadosListen[id]['nome'],
-              textTransform: dadosListen[id]['descricao'],//Isso pode dar problema--------------------------------------------------
             ),
           );
           print("Dado atualizado na lista! ${dadosListen[id]}");
@@ -221,9 +219,10 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   }
 
   void _onSymbolTapped(Symbol symbol) {
+    print("_onSymbolTapped - Inicio");
     if (_selectedSymbol != null) {
       _updateSelectedSymbol(
-        const SymbolOptions(iconSize: 1.0),
+        const SymbolOptions(iconSize: 1.3),
       );
     }
     setState(() {
@@ -231,7 +230,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     });
     _updateSelectedSymbol(
       SymbolOptions(
-        iconSize: 1.4,
+        iconSize: 1.6,
       ),
     );
     if(_selectedSymbol.options.iconImage != ''){
@@ -274,6 +273,14 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                         ),
                         actions: <Widget>[
                           FlatButton(
+                            child: Text('Criar Transporte'),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              String destino = "${_nomePointBus.text} - ${_descricaoPointBus.text}";
+                              criarTransporteComPonto(destino, true);
+                            },
+                          ),
+                          FlatButton(
                             child: Text('Excluir'),
                             onPressed: () {
                               _deletarPontoBus(_pontoBusMain.id);
@@ -284,7 +291,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                             child: Text('Salvar'),
                             onPressed: (){
                               //Salvar no banco de dados
-                              _atualizarPontoBus();
+                              _atualizarPontoBus(_pontoBusMain.id);
                               Navigator.pop(context);
                               super.setState(() {
 
@@ -300,12 +307,14 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
           }
         });
       }else{//Caso clique no transporte para obter mais informações
-        listaTransporte.forEach((symbol, dadosTransporte) {
-          if(symbol.id ==_selectedSymbol.id){
-            _auxTipo = (dadosTransporte.tipo == 'bus')?false:true;
-            _auxT.text = dadosTransporte.nome;
-            _auxRota.text = dadosTransporte.rota;
-            _infoTransporteON = true;
+        marcadorSymbolOnibus.forEach((id, symbol) {
+          if(_selectedSymbol.id == symbol.id){
+            setState(() {
+              _auxTipo.text = (marcadorOnibus[id]['tipo'] == 'bus')?'Ônibus':'Taxi-Lotação';
+              _auxT.text = marcadorOnibus[id]['nome'];
+              _auxRota.text = marcadorOnibus[id]['rota'];
+              _infoTransporteON = true;
+            });
             showDialog(
                 context: context,
                 builder: (context){
@@ -327,20 +336,12 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                 controller: _auxT,
                                 readOnly: true,
                               ),
-                              Padding(
-                                padding: EdgeInsets.only(bottom: 10),
-                                child: Row(
-                                  children: <Widget>[
-                                    Text("Ônibus"),
-                                    Switch(
-                                        value: _auxTipo,
-                                        onChanged: (bool valor){
-                                          //Não vai mudar aqui
-                                        }
-                                    ),
-                                    Text("Taxi Lotação"),
-                                  ],
+                              TextField(
+                                decoration: InputDecoration(
+                                    labelText: "Tipo do Transporte"
                                 ),
+                                controller: _auxTipo,
+                                readOnly: true,
                               ),
                               TextField(
                                 decoration: InputDecoration(
@@ -369,6 +370,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
           }
         });
       }
+      print("_onSymbolTapped - Fim");
     }
   }
 
@@ -392,11 +394,10 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                 dadosListen[id]['geoPoint'].longitude,
               ),
               iconImage: iconImage,
-              iconSize: 1.5,
+              iconSize: 1.3,
               iconAnchor: 'bottom',
-              textField: dadosListen[id]['nome'],//Lembrar de comentar isso aqui----------------------------------------
+              //textField: dadosListen[id]['nome'],//Lembrar de comentar isso aqui----------------------------------------
               textAnchor: 'top',
-              textTransform: dadosListen[id]['rota'],//Isso pode dar problema--------------------------------------------------
             ),
           );
           dadosSymbol.putIfAbsent(id, () => symbol);
@@ -413,13 +414,26 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                 dadosListen[id]['geoPoint'].longitude,
               ),
               iconImage: iconImage,
-              iconSize: 1.5,
+              iconSize: 1.3,
               iconAnchor: 'bottom',
               textField: dadosListen[id]['nome'],
               textAnchor: 'top',
-              textTransform: dadosListen[id]['rota'],//Isso pode dar problema--------------------------------------------------
             ),
           );
+
+          if(_infoTransporteON){//Atualiza as informações quando aberto a aba de informações do transporte
+            dadosSymbol.forEach((id, symbol) {
+             if(symbol.id == _selectedSymbol.id){
+               setState(() {
+                 _auxT.text = dadosListen[id]['nome'];
+                 _auxTipo.text = (marcadorOnibus[id]['tipo'] == 'bus')?'Ônibus':'Taxi-Lotação';
+                 _auxRota.text = dadosListen[id]['rota'];
+                 changeBus = true;
+               });
+               print("Informações atualizadas!");
+             }
+            });
+          }
           print("Dado atualizado na lista! ${dadosListen[id]}");
         }else if(documentChange.type == DocumentChangeType.removed){//Registro Removido
           String id = documentChange.document.documentID;
@@ -501,7 +515,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 //                            ),
 //                            iconImage: iconImage,
 //                            iconColor: iconColor,
-//                            iconSize: 1.5,
+//                            iconSize: 1.3,
 //                            iconAnchor: 'bottom',
 //                            textField: iconText,
 //                            textAnchor: 'top'
@@ -872,19 +886,10 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_criarPontoBus - Fim");
   }
 
-  Future<void> _atualizarPontoBus() async {
+  Future<void> _atualizarPontoBus(String id) async {
     print("_atualizarPontoBus - Inicio");
-    if(_busON){
-      _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
-      _meuTransporte.update();
-    }else{
-      _filaEspera = await _verificaBusProximo();
-      if(!_filaEspera){
-        _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
-        _meuTransporte.create();
-        _busON = true;
-      }
-    }
+    PontoBus pontoBus = new PontoBus(id, _nomePointBus.text, _descricaoPointBus.text, _meuGeoPoint);
+    await pontoBus.update();
     print("_atualizarPontoBus - Fim");
   }
 
@@ -893,6 +898,82 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     PontoBus pontoBus = new PontoBus(id);
     await pontoBus.delete();
     print("_deletarPontoBus - Fim");
+  }
+
+  Future<dynamic> criarTransporteComPonto([String destino, bool onread]){
+    onread ??= false;
+    _rotaBus.text = destino;
+    return showDialog(
+        context: context,
+        builder: (context){
+          return StatefulBuilder(
+            builder: (context, setState){
+              return AlertDialog(
+                title: Text(
+                    'Criar Transporte'
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      TextField(
+                        decoration: InputDecoration(
+                            labelText: 'Nome do transporte'
+                        ),
+                        controller: _nomeBus,
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: <Widget>[
+                            Text("Ônibus"),
+                            Switch(
+                                value: _tipo,
+                                onChanged: (bool valor){
+                                  setState(() {
+                                    _tipo = valor;
+                                  });
+                                }
+                            ),
+                            Text("Taxi Lotação"),
+                          ],
+                        ),
+                      ),
+                      TextField(
+                        decoration: InputDecoration(
+                            labelText: 'Qual rota está fazendo?',
+                        ),
+                        controller: _rotaBus,
+                        readOnly: onread,
+                      ),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  FlatButton(
+                    child: Text("Cancelar"),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  FlatButton(
+                    child: Text(_btnCriar),
+                    onPressed: (){
+                      //Salvar no banco de dados
+                      _criarTransporte();
+                      Navigator.pop(context);
+                      super.setState(() {
+                        _btnCriar = "Alterar";
+                        _gps = true;
+                        _btnBus = Colors.green;
+                      });
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        }
+    );
   }
 
   @override
@@ -905,12 +986,6 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
             icon: Icon(Icons.info_outline),
             onPressed: (){
               Navigator.pushNamed(context, "/info");
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.access_time),
-            onPressed: (){
-              Navigator.pushNamed(context, "/horarios");
             },
           ),
           IconButton(
@@ -963,28 +1038,6 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                 ),
               ),
             ),
-//            Positioned(
-//              top: 45,
-//              left: 0,
-//              right: 0,
-//              child: Padding(
-//                padding: EdgeInsets.all(10),
-//                child: Container(
-//                  height: 35,
-//                  width: double.infinity,
-//                  decoration: BoxDecoration(
-//                      border: Border.all(color: Colors.grey),
-//                      borderRadius: BorderRadius.circular(3),
-//                      color: Colors.white
-//                  ),
-//                  child: Center(
-//                    child:  Text(
-//                        _busPoint
-//                    )
-//                  ),
-//                ),
-//              ),
-//            ),
             Positioned(
               right: 0,
               left: 0,
@@ -1099,7 +1152,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                     child: (pontoBusON)?Text('Salvar'):Text('Criar'),
                                     onPressed: (){
                                       //Salvar no banco de dados
-                                      (pontoBusON)?_atualizarPontoBus():_criarPontoBus();
+                                      (pontoBusON)?_atualizarPontoBus(_pontoBusMain.id):_criarPontoBus();
                                       Navigator.pop(context);
                                       super.setState(() {
 
@@ -1152,76 +1205,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                   child: Icon(Icons.directions_bus),
                   backgroundColor: _btnBus,
                   onPressed: (){
-                    showDialog(
-                      context: context,
-                      builder: (context){
-                        return StatefulBuilder(
-                          builder: (context, setState){
-                            return AlertDialog(
-                              title: Text(
-                                  'Criar Transporte'
-                              ),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: <Widget>[
-                                    TextField(
-                                      decoration: InputDecoration(
-                                          labelText: 'Nome do transporte'
-                                      ),
-                                      controller: _nomeBus,
-                                    ),
-                                    Padding(
-                                      padding: EdgeInsets.only(bottom: 10),
-                                      child: Row(
-                                        children: <Widget>[
-                                          Text("Ônibus"),
-                                          Switch(
-                                              value: _tipo,
-                                              onChanged: (bool valor){
-                                                setState(() {
-                                                  _tipo = valor;
-                                                });
-                                              }
-                                          ),
-                                          Text("Taxi Lotação"),
-                                        ],
-                                      ),
-                                    ),
-                                    TextField(
-                                      decoration: InputDecoration(
-                                          labelText: 'Qual rota está fazendo?'
-                                      ),
-                                      controller: _rotaBus,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              actions: <Widget>[
-                                FlatButton(
-                                  child: Text("Cancelar"),
-                                  onPressed: () => Navigator.pop(context),
-                                ),
-                                FlatButton(
-                                  child: Text(_btnCriar),
-                                  onPressed: (){
-                                    //Salvar no banco de dados
-                                    _criarTransporte();
-                                    Navigator.pop(context);
-                                    super.setState(() {
-                                      _btnCriar = "Alterar";
-                                      _gps = true;
-                                      _btnBus = Colors.green;
-                                    });
-                                  },
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                      }
-                    );
+                    criarTransporteComPonto();
                   },
                 ),
               ),
