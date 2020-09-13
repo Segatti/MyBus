@@ -11,8 +11,8 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
 
-  TextEditingController _controllerEmail = TextEditingController(text: "mybus@gmail.com");
-  TextEditingController _controllerSenha = TextEditingController(text: "1234567");
+  TextEditingController _controllerEmail = TextEditingController(text: "");
+  TextEditingController _controllerSenha = TextEditingController(text: "");
   String _mensagemErro = "";
   bool _carregando = false;
 
@@ -116,7 +116,7 @@ class _HomeState extends State<Home> {
 
   void _recuperaUltimaLocalizacaoConhecida() async {
     print("_recuperaUltimaLocalizacaoConhecida() - Inicio");
-    Position position = await Geolocator().getLastKnownPosition(desiredAccuracy: LocationAccuracy.high);
+    await Geolocator().getLastKnownPosition(desiredAccuracy: LocationAccuracy.high);
     print("_recuperaUltimaLocalizacaoConhecida() - Fim");
   }
 

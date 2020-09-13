@@ -23,13 +23,13 @@ class _FeedbackNotaState extends State<FeedbackNota> {
     print("_validaDados - Fim");
   }
 
-  _enviarDados(){
+  _enviarDados() async {
     print("_enviarDados - Inicio");
     double star = _nota;
     String msg = _msg.text;
 
     FeedBack feedBack = new FeedBack('', star, msg);
-    feedBack.create();
+    await feedBack.create();
 
     Navigator.pop(context);
     print("_enviarDados - Fim");

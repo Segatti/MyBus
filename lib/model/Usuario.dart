@@ -1,21 +1,23 @@
+import 'Firebase.dart';
 
 class Usuario {
+  //Atributos
+  String idUsuario;
+  String nome;
+  String email;
+  String senha;
+  String tipoUsuario;
+  String app;
+  String especial;
+  String qtdOnibus;
+  String timeOnibus;
+  String notaOnibus;
 
-  String _idUsuario;
-  String _nome;
-  String _email;
-  String _senha;
-  String _tipoUsuario;
-  String _app;
-  String _especial;
-  String _qtdOnibus;
-  String _timeOnibus;
-  String _notaOnibus;
+  //Funções primitivas
+  Usuario([this.idUsuario, this.nome, this.email, this.senha, this.tipoUsuario, this.app, this.especial, this.qtdOnibus, this.timeOnibus, this.notaOnibus]);
 
-  Usuario();
-
+  //Funções Específicas
   Map<String, dynamic> toMap(){
-
     Map<String, dynamic> map = {
       "nome" : this.nome,
       "email" : this.email,
@@ -26,9 +28,7 @@ class Usuario {
       "timeOnibus" : this.timeOnibus,
       "notaOnibus" : this.notaOnibus,
     };
-
     return map;
-
   }
 
   String verificaTipoUsuario(bool tipoUsuario){
@@ -39,95 +39,48 @@ class Usuario {
     return opcao ? "Sim" : "Não";
   }
 
-  String get tipoUsuario => _tipoUsuario;
-
-  set tipoUsuario(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _tipoUsuario = value;
+  //Funções Básicas
+  Future create() async{
+    Firebase firebase = new Firebase();
+    this.idUsuario = await firebase.create('usuarios', this.toMap(), true);
+    print("Usuário criado com sucesso! $idUsuario");
   }
 
-  String get senha => _senha;
-
-  set senha(String value) {
-    if(value == null) {
-      throw new ArgumentError();
+  Future read([String id, Map<String, dynamic> dados]) async{
+    Firebase firebase = new Firebase();
+    if(dados == null && id == null){
+      Map<String, dynamic> dados = await firebase.read('usuarios');
+      print("Todos os usuarios foram lidos! $dados");
+      return dados;
+    }else if(id == null){
+      await firebase.read('usuarios', '', true, dados);
+      print("Ativado modo 'listen' para usuarios! $dados");
+    }else if(id != ''){
+      Map<String, dynamic> dados = await firebase.read('usuarios', id);
+      print("O usuario foi lido! $dados");
+      this.idUsuario = id;
+      this.nome = dados[id]['nome'];
+      this.email = dados[id]['email'];
+      this.tipoUsuario = dados[id]['tipoUsuario'];
+      this.app = dados[id]['appUtil'];
+      this.especial = dados[id]['especial'];
+      this.qtdOnibus = dados[id]['qtdOnibus'];
+      this.timeOnibus = dados[id]['timeOnibus'];
+      this.notaOnibus = dados[id]['notaOnibus'];
+    }else{
+      print("Houve um problema com relação aos parâmetros para ler usuarios!");
     }
-    _senha = value;
   }
 
-  String get email => _email;
-
-  set email(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _email = value;
+  Future update() async{
+    Firebase firebase = new Firebase();
+    bool status = await firebase.update('usuarios', this.idUsuario, this.toMap());
+    print("Usuário foi atualizado com sucesso! $status");
   }
 
-  String get nome => _nome;
-
-  set nome(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _nome = value;
+  Future delete() async{
+    Firebase firebase = new Firebase();
+    bool status = await firebase.delete('usuarios', this.idUsuario);
+    print("Usuário foi deletado com sucesso! $status");
   }
-
-  String get idUsuario => _idUsuario;
-
-  set idUsuario(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _idUsuario = value;
-  }
-
-  String get notaOnibus => _notaOnibus;
-
-  set notaOnibus(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _notaOnibus = value;
-  }
-
-  String get timeOnibus => _timeOnibus;
-
-  set timeOnibus(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _timeOnibus = value;
-  }
-
-  String get qtdOnibus => _qtdOnibus;
-
-  set qtdOnibus(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _qtdOnibus = value;
-  }
-
-  String get especial => _especial;
-
-  set especial(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _especial = value;
-  }
-
-  String get app => _app;
-
-  set app(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _app = value;
-  }
-
-
 }
