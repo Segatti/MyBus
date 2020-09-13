@@ -780,8 +780,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
   Future<void> _deletarPontoBus(String id) async {
     print("_deletarPontoBus - Inicio");
-    //PontoBus pontoBus = new PontoBus(id);
-    //await pontoBus.delete();//Desativado por segurança kkkkk
+    PontoBus pontoBus = new PontoBus(id);
+    await pontoBus.delete();
     print("_deletarPontoBus - Fim");
   }
 
