@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mapbox_navigation/flutter_mapbox_navigation.dart';
@@ -37,7 +36,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   MapboxMapController mapController;
   static final CameraPosition _kInitialPosition = const CameraPosition(target: LatLng(0, 0), zoom: 13.0);
   String _styleString = MapboxStyles.MAPBOX_STREETS;
-  MyLocationTrackingMode _myLocationTrackingMode = MyLocationTrackingMode.Tracking;
+  MyLocationTrackingMode _myLocationTrackingMode = MyLocationTrackingMode.TrackingGPS;
   CameraTargetBounds _cameraTargetBounds = CameraTargetBounds.unbounded;
   MinMaxZoomPreference _minMaxZoomPreference = MinMaxZoomPreference.unbounded;
   bool _compassEnabled = true;
@@ -472,16 +471,21 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
             target: LatLng(position.latitude, position.longitude),
             zoom: 15
         );
-        if(_transporteON) _atualizarTransporte();
+        if(_transporteON){
+          _atualizarTransporte();
+          mapController.moveCamera(
+            CameraUpdate.newCameraPosition(_myLocal),
+          );
+        }
       });
     });
     print("_adicionarListenerLocalizacao() - Fim");
   }
 
-  void _buscarPonto(){
+  void _buscarPonto() async{
     print("_buscarPonto() - Inicio");
     GeoPoint minhaPosicao = new GeoPoint(_meuGeoPoint.latitude, _meuGeoPoint.longitude);
-    GeoPoint pontoProximo = _encontrarParadaProxima();
+    GeoPoint pontoProximo = await _encontrarParadaProxima();
     LatLng northeast;
     LatLng southwest;
     if(minhaPosicao.latitude <= pontoProximo.latitude){
@@ -506,18 +510,18 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_buscarPonto() - Fim");
   }
 
-  GeoPoint _encontrarParadaProxima(){
+  Future<GeoPoint> _encontrarParadaProxima() async{
     print("_encontrarParadaProxima() - Inicio");
     _recuperaUltimaLocalizacaoConhecida();
     GeoPoint minhaPosicao = new GeoPoint(_meuGeoPoint.latitude, _meuGeoPoint.longitude);
     double distancia = 999999999999;
     String pontoProximo;
-    marcadorParada.forEach((id, parada) {
-      if(distancia > _calculaDistancia(minhaPosicao, parada['geoPoint'])){
-        distancia = _calculaDistancia(minhaPosicao, parada['geoPoint']);
-        pontoProximo = id;
+    for(var item in marcadorParada.entries){
+      if(distancia > await _calculaDistancia(minhaPosicao, marcadorParada[item.key]['geoPoint'])){
+        distancia = await _calculaDistancia(minhaPosicao, marcadorParada[item.key]['geoPoint']);
+        pontoProximo = item.key;
       }
-    });
+    }
     print("_encontrarParadaProxima() - Fim");
     return marcadorParada[pontoProximo]['geoPoint'];
   }
@@ -551,13 +555,13 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("_gerarRota - Fim");
   }
 
-  void calculaTime(List<GeoPoint> pontosRota){
+  void calculaTime(List<GeoPoint> pontosRota) async{
     print("calculaTime - Inicio");
     double distanciaTotal = 0;
 
     for(int i = 0; i < pontosRota.length; i++){
       if(i == 0) continue;
-      distanciaTotal += _calculaDistancia(pontosRota[(i-1)], pontosRota[i]);
+      distanciaTotal += await _calculaDistancia(pontosRota[(i-1)], pontosRota[i]);
     }
 
     print("Distancia total é: " + distanciaTotal.toString());
@@ -565,7 +569,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     if(speedKH < 1.8){//-----------------------------------------Atenção
       setState(() {
         _timeKey = true;
-        _myPoint = "Distância total é ${distanciaTotal.floor()*1000} metros";
+        _myPoint = "Distância total é ${distanciaTotal.floor()} metros";
       });
     }else{
       int minutos = (((distanciaTotal*1000)/speedKH)/60).round();
@@ -590,15 +594,11 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print("calculaTime - Fim");
   }
 
-  double _calculaDistancia(GeoPoint origin, GeoPoint destiny){
+  Future<double> _calculaDistancia(GeoPoint origin, GeoPoint destiny) async{
     print("_calculaDistancia - Inicio");
-    var p = 0.017453292519943295;
-    var c = cos;
-    var a = 0.5 - c((destiny.latitude - origin.latitude) * p)/2 +
-        c(origin.latitude * p) * c(destiny.latitude * p) *
-            (1 - c((destiny.longitude - origin.longitude) * p))/2;
+    double distancia = await Geolocator().distanceBetween(origin.latitude, origin.longitude, destiny.latitude, destiny.longitude);
     print("_calculaDistancia - Fim");
-    return 12742 * asin(sqrt(a));
+    return distancia;
   }
 
   void _desenhaRota(List<GeoPoint> rotaGerada){
@@ -630,6 +630,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
   Future<void> _criarTransporte() async {
     print("_criarTransporte - Inicio");
+    _apagaRota();
     _filaEspera = await _verificaBusProximo();
     _meuTransporte = new Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
     if(!_filaEspera){
@@ -672,15 +673,15 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   Future<bool> _verificaBusProximo() async {//Verifica se existe bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
     print("_verificaBusProximo - Inicio");
     GeoPoint posicao = _meuGeoPoint;
-    Map<String, dynamic> _busPerto = _buscarMarcadorProximo(marcadorOnibus, 50.00);//Pega todos os bus dentro do raio
+    Map<String, dynamic> _busPerto = await _buscarMarcadorProximo(marcadorOnibus, 50.00);//Pega todos os bus dentro do raio
     double distancia = 50.00;
     String idBusProximo;
-    _busPerto.forEach((id, transporte) {//Encontra o bus mais proxima para ser o busMain
-      if(distancia >= _calculaDistancia(posicao, transporte['geoPoint'])){
-        distancia = _calculaDistancia(posicao, transporte['geoPoint']);
-        idBusProximo = id;
+    for(var item in _busPerto.entries){
+      if(distancia >= await _calculaDistancia(posicao, _busPerto[item.key]['geoPoint'])){
+        distancia = await _calculaDistancia(posicao, _busPerto[item.key]['geoPoint']);
+        idBusProximo = item.key;
       }
-    });
+    }
 
     print(idBusProximo);
 
@@ -703,36 +704,37 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     }
   }
 
-  Map<String, dynamic> _buscarMarcadorProximo(Map<String, dynamic> marcadorList, double raioDistancia){//Verifica os bus dentro do raio em metros(ao redor do user)
-    print("_buscarBusProximo - Inicio");
+  Future<Map<String, dynamic>> _buscarMarcadorProximo(Map<String, dynamic> marcadorList, double raioDistancia) async{//Verifica os bus dentro do raio em metros(ao redor do user)
+    print("_buscarMarcadorProximo - Inicio");
     Map<String, dynamic> _marcadorDentroRaio = new Map();
-    marcadorList.forEach((id, transporte) {
-      GeoPoint auxTransportePoint = transporte['geoPoint'];
-      GeoPoint auxMyPoint = _meuGeoPoint;
-      double _distancia = _calculaDistancia(auxMyPoint, auxTransportePoint);
+    double _distancia;
+    for(var item in marcadorList.entries){
+      _distancia = await _calculaDistancia(marcadorList[item.key]['geoPoint'], _meuGeoPoint);
+      print("$_distancia|$raioDistancia");
       if(_distancia <= raioDistancia){
-        print("Encontrou ônibus próximo!");
-        _marcadorDentroRaio.putIfAbsent(id, () => transporte);
+        print("Encontrou marcador próximo!");
+        _marcadorDentroRaio.putIfAbsent(item.key, () => marcadorList[item.key]);
       }else{
-        print("Ônibus está distante!");
+        print("Marcador está distante!");
       }
-    });
-    print("_buscarBusProximo - Fim");
+    }
+    print("_buscarMarcadorProximo - Fim");
     return _marcadorDentroRaio;
   }
 
   Future<void> _verificaPontoBusProximo() async {//Verifica se existe ponto de bus perto, caso n tenha, dá permissão para ativar o bus do user(isso é transparente para o user)
     print("_verificaPontoBusProximo - Inicio");
     GeoPoint posicao = _meuGeoPoint;
-    Map<String, dynamic> _pontoBusPerto = _buscarMarcadorProximo(marcadorParada, 50.00);//Pega todos pontos de bus dentro do raio
-    double distancia = 50.00;
+    Map<String, dynamic> _pontoBusPerto = await _buscarMarcadorProximo(marcadorParada, 15.0);//Pega todos pontos de bus dentro do raio
+    print(_pontoBusPerto);
+    double distancia = 15.0;
     String idPontoBusProximo;
-    _pontoBusPerto.forEach((id, transporte) {//Encontra o ponto de bus mais proxima para ser o pointBusMain
-      if(distancia >= _calculaDistancia(posicao, transporte['geoPoint'])){
-        distancia = _calculaDistancia(posicao, transporte['geoPoint']);
-        idPontoBusProximo = id;
+    for(var item in _pontoBusPerto.entries){
+      if(distancia >= await _calculaDistancia(posicao, _pontoBusPerto[item.key]['geoPoint'])){
+        distancia = await _calculaDistancia(posicao, _pontoBusPerto[item.key]['geoPoint']);
+        idPontoBusProximo = item.key;
       }
-    });
+    }
 
     print(idPontoBusProximo);
 
