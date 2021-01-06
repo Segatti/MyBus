@@ -1,11 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'Firebase.dart';
 
 class FeedBack{
   //Atributos
-  String _id;
-  double _nota;
-  String _msg;
+  String id;
+  double nota;
+  String msg;
+
+  //Funções Primitivas
+  FeedBack([this.id, this.nota, this.msg]);
 
   //Funções Específicas
   Map<String, dynamic> toMap(){
@@ -18,65 +20,37 @@ class FeedBack{
 
   //Funções Básicas
   Future create() async{
-    Firestore banco = Firestore.instance;
-    FirebaseAuth user = FirebaseAuth.instance;
-    FirebaseUser usuarioLogado = await user.currentUser();
-    banco.collection('feedback').document(usuarioLogado.uid).setData(this.toMap());
+    Firebase firebase = new Firebase();
+    dynamic id = await firebase.create('feedback', this.toMap(), true);
+    this.id = id;
+    print("Feedback criado com sucesso! $id");
   }
 
-  Future read() async{
-    Firestore banco = Firestore.instance;
-    QuerySnapshot querySnapshot = await banco.collection('feedback').getDocuments();
-    List<FeedBack> dados = new List();
-    for(DocumentSnapshot item in querySnapshot.documents){
-      dados.add(new FeedBack(item.documentID, item.data['nota'], item.data['tipo']));
+  Future read([String id]) async{
+    if(id != '' && id != null){
+      Firebase firebase = new Firebase();
+      Map<String, dynamic> dados = await firebase.read('feedback', id);
+      this.id = id;
+      this.nota = dados['nota'];
+      this.msg = dados['msg'];
+      print("O feedback foi lido! $dados");
+    }else{
+      Firebase firebase = new Firebase();
+      Map<String, dynamic> dados = await firebase.read('feedback');
+      print("Todos os feedbacks foram lidos! $dados");
+      return dados;
     }
-    return dados;
   }
 
-  Future update(Map<String, dynamic> map) async{
-    Firestore banco = Firestore.instance;
-    FirebaseAuth user = FirebaseAuth.instance;
-    FirebaseUser usuarioLogado = await user.currentUser();
-    banco.collection('feedback').document(usuarioLogado.uid).updateData(map);
+  Future update() async{
+    Firebase firebase = new Firebase();
+    bool status = await firebase.update('feedback', this.id, this.toMap());
+    print("O feedback foi atualizado com sucesso! $status");
   }
 
   Future delete() async{
-    Firestore banco = Firestore.instance;
-    FirebaseAuth user = FirebaseAuth.instance;
-    FirebaseUser usuarioLogado = await user.currentUser();
-    banco.collection('feedback').document(usuarioLogado.uid).delete();
+    Firebase firebase = new Firebase();
+    bool status = await firebase.delete('feedback', this.id);
+    print("O feedback foi deletado com sucesso! $status");
   }
-
-  //Funções Primitivas
-  FeedBack(this._id, this._nota, this._msg);
-
-  String get id => _id;
-
-  set id(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _id = value;
-  }
-
-  String get msg => _msg;
-
-  set msg(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _msg = value;
-  }
-
-  double get nota => _nota;
-
-  set nota(double value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _nota = value;
-  }
-
-
 }

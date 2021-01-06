@@ -2,47 +2,60 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Firebase{
+  //Atributos
   FirebaseAuth firebaseAuth;
   Firestore firestore;
 
+  //Funções Primitivas
+  Firebase(){
+    this.firebaseAuth = FirebaseAuth.instance;
+    this.firestore = Firestore.instance;
+  }
+
+  //Funções Específicas
+  //Aqui entrará futuramente, funções do FireabaseAuth e etc.
+
   //Funções Básicas
-  Future create(String tabela, Map<String, dynamic> dado, [bool userId, String id]) async{
-    if(id == null){
-      firestore.collection(tabela).add(dado)
+  Future<String> create(String tabela, Map<String, dynamic> dado, [bool userId, String id]) async{
+    String idValor = '';
+    userId ??= false;//Se for null, recebe false!
+    if(userId && id == null){
+      FirebaseUser firebaseUser = await firebaseAuth.currentUser();
+      await firestore.collection(tabela).document(firebaseUser.uid).setData(dado)
           .then((value){
-            print("Dado registrado com sucesso! ${value.toString()}");
-            return true;
+        print("Dado registrado com sucesso e com UID!");
+        idValor = firebaseUser.uid;
+      })
+          .catchError((onError){
+        print("Falha ao tentar registrar dado com UID! ${onError.toString()}");
+      });
+      return idValor;
+    }else if(id == null){
+      await firestore.collection(tabela).add(dado)
+          .then((value){
+            print("Dado registrado com sucesso! ${value.documentID}");
+            idValor = value.documentID;
           })
           .catchError((onError){
             print("Falha ao tentar registrar dado! ${onError.toString()}");
-            return false;
           });
-    }else if(userId){
-      FirebaseUser firebaseUser = await firebaseAuth.currentUser();
-      firestore.collection(tabela).document(firebaseUser.uid).setData(dado)
-          .then((value){
-            print("Dado registrado com sucesso e com UID!");
-            return true;
-          })
-          .catchError((onError){
-            print("Falha ao tentar registrar dado com UID! ${onError.toString()}");
-            return false;
-          });
+      return idValor;
     }else{
-      firestore.collection(tabela).document(id).setData(dado)
+      await firestore.collection(tabela).document(id).setData(dado)
           .then((value){
       print("Dado registrado com sucesso e com ID!");
-      return true;
+      idValor = id;
       })
           .catchError((onError){
       print("Falha ao tentar registrar dado com ID! ${onError.toString()}");
-      return false;
       });
-      }
+      return idValor;
+    }
   }
 
   Future read(String tabela, [String id, bool listen, Map<String, dynamic> dadosListen]) async{
-    if(listen){
+    listen ??= false;//Se for null, recebe false!
+    if(listen && listen != null){
       firestore.collection(tabela).snapshots().listen((snapshot) {
         snapshot.documentChanges.forEach((documentChange) {
           if(documentChange.type == DocumentChangeType.added){//Registro Adicionado
@@ -83,7 +96,7 @@ class Firebase{
     FirebaseUser firebaseUser = await firebaseAuth.currentUser();
     id = (id == '')? firebaseUser.uid : id;
 
-    firestore.collection(tabela).document(id).updateData(dado)
+    await firestore.collection(tabela).document(id).updateData(dado)
         .then((value){
           print("Dado atualizado com sucesso!");
           return true;
@@ -97,7 +110,7 @@ class Firebase{
   Future delete(String tabela, String id) async{
     FirebaseUser firebaseUser = await firebaseAuth.currentUser();
     id = (id == '')? firebaseUser.uid : id;
-    firestore.collection(tabela).document(id).delete()
+    await firestore.collection(tabela).document(id).delete()
         .then((value){
           print("Dado deletado com sucesso!");
           return true;
@@ -106,11 +119,5 @@ class Firebase{
           print("Falha ao tentar deletar dado!");
           return false;
         });
-  }
-
-  //Funções Primitivas
-  Firebase(){
-    this.firebaseAuth = FirebaseAuth.instance;
-    this.firestore = Firestore.instance;
   }
 }

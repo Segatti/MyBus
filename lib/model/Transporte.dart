@@ -1,14 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'Firebase.dart';
+
 class Transporte{
   //Atributos
-  String _id;
-  String _nome;
-  String _tipo;
-  String _rota;
-  double _lat;
-  double _lng;
-  bool _status;
+  String id;
+  String nome;
+  String tipo;
+  String rota;
+  GeoPoint geoPoint;
+  Timestamp timestamp;
+
+  //Funções Primitivas
+  Transporte([this.id, this.nome, this.tipo, this.rota, this.geoPoint]);
   
   //Funções Específicas
   Map<String, dynamic> toMap(){
@@ -16,113 +19,78 @@ class Transporte{
       "nome" : this.nome,
       "tipo" : this.tipo,
       "rota" : this.rota,
-      "lat" : this.lat,
-      "lng" : this.lng,
-      "status" : this.status 
+      "geoPoint" : this.geoPoint,
+      "timeStamp" : DateTime.now(),
     };
     return map;
+  }
+
+  Map<String, dynamic> toFila(String idBusMain){
+    Map<String, dynamic> map = {
+      "busMain" : idBusMain,
+      "timeStamp" : DateTime.now(),
+    };
+    return map;
+  }
+
+  Future entrarFila(String idBusMain) async{
+    Firebase firebase = new Firebase();
+    dynamic id = await firebase.create('fila_espera', this.toFila(idBusMain), true);
+    this.id = id;
+    print("Entrou na fila de espera!");
+  }
+
+  Future lerFila(String idBusMain) async{
+    Firestore firestore = new Firestore();
+    Map<String, dynamic> dados = new Map();
+    QuerySnapshot querySnapshot = await firestore.collection('fila_espera').where(['idBusMain', '=', idBusMain]).orderBy('timeStamp').getDocuments();
+    for(DocumentSnapshot item in querySnapshot.documents){
+      dados.putIfAbsent(item.documentID, () => item.data);
+    }
+    print("Fila lida com sucesso! $dados");
+    return dados;
   }
   
   //Funções Básicas
   Future create() async{
-    Firestore banco = Firestore.instance;
-    FirebaseAuth user = FirebaseAuth.instance;
-    FirebaseUser usuarioLogado = await user.currentUser();
-    banco.collection('transporte').document(usuarioLogado.uid).setData(this.toMap());
+    Firebase firebase = new Firebase();
+    this.id = await firebase.create('transporte', this.toMap(), true);
+    print("Transporte criado com sucesso! $id");
   }
 
-  Future read() async{
-    Firestore banco = Firestore.instance;
-    QuerySnapshot querySnapshot = await banco.collection('transporte').where('status', isEqualTo: true).getDocuments();
-    List<Transporte> dados = new List();
-    for(DocumentSnapshot item in querySnapshot.documents){
-      dados.add(new Transporte(item.documentID, item.data['nome'], item.data['tipo'], item.data['rota'], item.data['lat'].toDouble(), item.data['lng'].toDouble(), item.data['status']));
+  Future read([String id, Map<String, dynamic> dados]) async{
+    Firebase firebase = new Firebase();
+    if(dados == null && id == null){
+      Map<String, dynamic> dados = await firebase.read('transporte');
+      print("Todos os transportes foram lidos! $dados");
+      return dados;
+    }else if(id == null){
+      await firebase.read('transporte', '', true, dados);
+      print("Ativado modo 'listen' para transporte! $dados");
+    }else if(id != ''){
+      Map<String, dynamic> dados = await firebase.read('transporte', id);
+      print("O transporte foi lido! $dados");
+      this.id = id;
+      this.nome = dados[id]['nome'];
+      this.tipo = dados[id]['tipo'];
+      this.rota = dados[id]['rota'];
+      this.geoPoint = dados[id]['geoPoint'];
+      this.timestamp = dados[id]['timeStamp'];
+    }else{
+      print("Houve um problema com relação aos parâmetros para ler transportes!");
     }
-    return dados;
   }
 
-  Future update(Map<String, dynamic> map) async{
-    Firestore banco = Firestore.instance;
-    FirebaseAuth user = FirebaseAuth.instance;
-    FirebaseUser usuarioLogado = await user.currentUser();
-    banco.collection('transporte').document(usuarioLogado.uid).updateData(map);
+  Future update() async{
+    Firebase firebase = new Firebase();
+    bool status = await firebase.update('transporte', this.id, this.toMap());
+    print("O transporte foi atualizado com sucesso! $status");
   }
 
   Future delete() async{
-    Firestore banco = Firestore.instance;
-    FirebaseAuth user = FirebaseAuth.instance;
-    FirebaseUser usuarioLogado = await user.currentUser();
-    Map<String, dynamic> dado = {
-      "status" : false
-    };
-    banco.collection('transporte').document(usuarioLogado.uid).updateData(dado);
+    Firebase firebase = new Firebase();
+    bool status = await firebase.delete('transporte', this.id);
+    print("O transporte foi deletado com sucesso! $status");
   }
-
-  //Funções Primitivas
-  Transporte(this._id, this._nome, this._tipo, this._rota, this._lat, this._lng, this._status);
-
-  String get id => _id;
-
-  set id(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _id = value;
-  }
-
-  String get nome => _nome;
-
-  set nome(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _nome = value;
-  }
-
-  String get tipo => _tipo;
-
-  set tipo(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _tipo = value;
-  }
-
-  String get rota => _rota;
-
-  set rota(String value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _rota = value;
-  }
-
-  double get lat => _lat;
-
-  set lat(double value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _lat = value;
-  }
-
-  bool get status => _status;
-
-  set status(bool value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _status = value;
-  }
-
-  double get lng => _lng;
-
-  set lng(double value) {
-    if(value == null) {
-      throw new ArgumentError();
-    }
-    _lng = value;
-  }
-
-
+  
 }
