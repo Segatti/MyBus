@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mybus/model/Usuario.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class Cadastro extends StatefulWidget {
   @override
@@ -20,6 +22,7 @@ class _CadastroState extends State<Cadastro> {
   double _timeOnibus = 0.0;
   double _notaOnibus = 0.0;
   String _mensagemErro = "";
+  bool _termo = false;
 
   _validarCampos(){
 
@@ -32,48 +35,54 @@ class _CadastroState extends State<Cadastro> {
     String notaBus = _notaOnibus.floor().toString();
 
     //validar campos
-    if( nome.trim().isNotEmpty ){
+    if(_termo){
+      if( nome.trim().isNotEmpty ){
 
-      if( email.trim().isNotEmpty && email.contains("@") ){
+        if( email.trim().isNotEmpty && email.contains("@") ){
 
-        if( senha.trim().isNotEmpty && senha.length > 6 ){
+          if( senha.trim().isNotEmpty && senha.length > 6 ){
 
-          if( _qtdOnibus != 0 || _timeOnibus != 0 ){
+            if( _qtdOnibus != 0 || _timeOnibus != 0 ){
 
-            Usuario usuario = Usuario();
-            usuario.nome = nome;
-            usuario.email = email;
-            usuario.senha = senha;
-            usuario.tipoUsuario = usuario.verificaTipoUsuario(_tipoUsuario);
-            usuario.app = usuario.verificaOpcao(_app);
-            usuario.especial = usuario.verificaOpcao(_especial);
-            usuario.qtdOnibus = qtdBus;
-            usuario.timeOnibus = timeBus;
-            usuario.notaOnibus = notaBus;
+              Usuario usuario = Usuario();
+              usuario.nome = nome;
+              usuario.email = email;
+              usuario.senha = senha;
+              usuario.tipoUsuario = usuario.verificaTipoUsuario(_tipoUsuario);
+              usuario.app = usuario.verificaOpcao(_app);
+              usuario.especial = usuario.verificaOpcao(_especial);
+              usuario.qtdOnibus = qtdBus;
+              usuario.timeOnibus = timeBus;
+              usuario.notaOnibus = notaBus;
 
-            _cadastrarUsuario( usuario );
+              _cadastrarUsuario( usuario );
+
+            }else{
+              setState(() {
+                _mensagemErro = "Preencha o formulário corretamente!";
+              });
+            }
 
           }else{
             setState(() {
-              _mensagemErro = "Preencha o formulário corretamente!";
+              _mensagemErro = "Preencha a senha! digite mais de 6 caracteres";
             });
           }
 
         }else{
           setState(() {
-            _mensagemErro = "Preencha a senha! digite mais de 6 caracteres";
+            _mensagemErro = "Preencha o E-mail válido";
           });
         }
 
       }else{
         setState(() {
-          _mensagemErro = "Preencha o E-mail válido";
+          _mensagemErro = "Preencha o Nome";
         });
       }
-
     }else{
       setState(() {
-        _mensagemErro = "Preencha o Nome";
+        _mensagemErro = "Você não aceitou os termos de uso!";
       });
     }
 
@@ -306,6 +315,32 @@ class _CadastroState extends State<Cadastro> {
                         });
                       },
                     )
+                ),
+                Padding(
+                  padding: EdgeInsets.all(0),
+                  child: CheckboxListTile(
+                    title: RichText(
+                      text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: "Eu aceito os termos de uso do aplicativo MyBus!",
+                              style: TextStyle(color: Colors.black),
+                            ),
+                            TextSpan(
+                                text: "->Termos de Uso<-",
+                                style: TextStyle(color: Colors.blue),
+                                recognizer: TapGestureRecognizer()..onTap = (){launch('https://drive.google.com/file/d/1kut6uERfxY5gxlCoN5iYUiFNmjwkhZEX/view');}
+                            ),
+                          ]
+                      ),
+                    ),
+                    value: _termo,
+                    onChanged: (valor){
+                      setState(() {
+                        _termo = valor;
+                      });
+                    },
+                  ),
                 ),
                 Padding(
                   padding: EdgeInsets.all(0),

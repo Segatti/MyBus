@@ -783,7 +783,42 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   Future<void> _deletarPontoBus(String id) async {
     print("_deletarPontoBus - Inicio");
     PontoBus pontoBus = new PontoBus(id);
-    await pontoBus.delete();
+    if(await _calculaDistancia(_meuGeoPoint, marcadorParada[id]['geoPoint']) <= 25){
+      await pontoBus.delete();
+    }else{
+      print("Não pode deletar o ponto de longe!");
+      return showDialog(
+          context: context,
+          builder: (context){
+            return StatefulBuilder(
+              builder: (context, setState){
+                return AlertDialog(
+                  title: Text(
+                      'Atenção!'
+                  ),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text(
+                          "Não é possivel deletar o ponto dessa distância, chegue mais próximo para deletar."
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: <Widget>[
+                    FlatButton(
+                      child: Text("Entendi!"),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                );
+              },
+            );
+          }
+      );
+    }
     print("_deletarPontoBus - Fim");
   }
 
