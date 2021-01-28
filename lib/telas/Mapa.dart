@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_mapbox_navigation/flutter_mapbox_navigation.dart';
 import 'package:mapbox_gl/mapbox_gl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
@@ -17,7 +16,7 @@ class Mapa extends StatefulWidget {
 
 class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
-  //Geral//
+  //Geral//flutter
   String _myPoint = "Eu -> Ponto: ∞";
   GeoPoint _meuGeoPoint;
   double _meuSpeed = 1;
@@ -502,8 +501,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     mapController.animateCamera(
       CameraUpdate.newLatLngBounds(zoomPontos, 25),
     ).then((result) async{
-        final _origin = Location(name: "Minha Localização", latitude: minhaPosicao.latitude, longitude: minhaPosicao.longitude);
-        final _destination = Location(name: "Destino", latitude: pontoProximo.latitude, longitude: pontoProximo.longitude);
+        final _origin = GeoPoint(minhaPosicao.latitude, minhaPosicao.longitude);
+        final _destination = GeoPoint(pontoProximo.latitude, pontoProximo.longitude);
         _gerarRota(_origin, _destination);
       }
     );
@@ -526,7 +525,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     return marcadorParada[pontoProximo]['geoPoint'];
   }
 
-  void _gerarRota(Location minhaPosicao,Location destino) async {
+  void _gerarRota(GeoPoint minhaPosicao,GeoPoint destino) async {
     print("_gerarRota - Inicio");
     if(rotaGerada != null) _apagaRota();//Deletar desenho da rota se existir
     const String URL = 'https://api.mapbox.com/directions/v5/mapbox/walking/';

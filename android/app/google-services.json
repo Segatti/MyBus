@@ -38,6 +38,13 @@
             {
               "client_id": "443101330466-ig3ooqs8jndi8cc1ptomcfnc5msckphl.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "443101330466-puk3qqcq0g2lhiqh4o766ao6galler3v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.unifesspa.mybus"
+              }
             }
           ]
         }

@@ -59,11 +59,11 @@ class _FeedbackNotaState extends State<FeedbackNota> {
                 ),
                 Padding(
                   padding: EdgeInsets.fromLTRB(0, 0, 0, 20),
-                  child: RatingBar(
-                    initialRating: 0,
+                  child: RatingBar.builder(
+                    initialRating: 3,
                     minRating: 1,
                     direction: Axis.horizontal,
-                    allowHalfRating: true,
+                    allowHalfRating: false,
                     itemCount: 5,
                     itemPadding: EdgeInsets.symmetric(horizontal: 4.0),
                     itemBuilder: (context, _) => Icon(

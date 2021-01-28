@@ -146,7 +146,7 @@ class _CadastroState extends State<Cadastro> {
                   style: TextStyle(fontSize: 20),
                   decoration: InputDecoration(
                       contentPadding: EdgeInsets.fromLTRB(32, 16, 32, 16),
-                      hintText: "Nome completo",
+                      labelText: "Nome completo",
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -160,7 +160,7 @@ class _CadastroState extends State<Cadastro> {
                   style: TextStyle(fontSize: 20),
                   decoration: InputDecoration(
                       contentPadding: EdgeInsets.fromLTRB(32, 16, 32, 16),
-                      hintText: "e-mail",
+                      labelText: "e-mail",
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -175,7 +175,7 @@ class _CadastroState extends State<Cadastro> {
                   style: TextStyle(fontSize: 20),
                   decoration: InputDecoration(
                       contentPadding: EdgeInsets.fromLTRB(32, 16, 32, 16),
-                      hintText: "senha",
+                      labelText: "senha",
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
