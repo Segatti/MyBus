@@ -6,8 +6,8 @@ import 'package:mapbox_gl/mapbox_gl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:mybus/model/PontoBus.dart';
-import 'package:mybus/model/Transporte.dart';
+import 'package:MyBus/model/PontoBus.dart';
+import 'package:MyBus/model/Transporte.dart';
 
 class Mapa extends StatefulWidget {
   @override

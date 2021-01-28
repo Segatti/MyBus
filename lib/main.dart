@@ -1,6 +1,6 @@
+import 'package:MyBus/telas/Home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:mybus/telas/Home.dart';
 import 'Rotas.dart';
 
 final ThemeData temaPadrao = ThemeData(

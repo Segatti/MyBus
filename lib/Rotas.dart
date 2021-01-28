@@ -1,9 +1,9 @@
+import 'package:MyBus/telas/Cadastro.dart';
+import 'package:MyBus/telas/FeedbackNota.dart';
+import 'package:MyBus/telas/Home.dart';
+import 'package:MyBus/telas/Info.dart';
+import 'package:MyBus/telas/Mapa.dart';
 import 'package:flutter/material.dart';
-import 'package:mybus/telas/Cadastro.dart';
-import 'package:mybus/telas/FeedbackNota.dart';
-import 'package:mybus/telas/Home.dart';
-import 'package:mybus/telas/Info.dart';
-import 'package:mybus/telas/Mapa.dart';
 
 class Rotas {
 

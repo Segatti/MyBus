@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:mybus/model/FeedBack.dart';
+import 'package:MyBus/model/FeedBack.dart';
 
 class FeedbackNota extends StatefulWidget {
   @override

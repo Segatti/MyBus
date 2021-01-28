@@ -1,4 +1,4 @@
-name: mybus
+name: MyBus
 description: MyBus 2.0 - Com envio de localização
 
 # The following defines the version and build number for your application.
@@ -15,6 +15,9 @@ version: 1.0.1+2
 
 environment:
   sdk: ">=2.2.2 <3.0.0"
+
+module:
+  androidX: true
 
 dependencies:
   flutter:
