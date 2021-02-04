@@ -35,14 +35,14 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   MapboxMapController mapController;
   static final CameraPosition _kInitialPosition = const CameraPosition(target: LatLng(0, 0), zoom: 13.0);
   String _styleString = MapboxStyles.MAPBOX_STREETS;
-  MyLocationTrackingMode _myLocationTrackingMode = MyLocationTrackingMode.TrackingGPS;
+  MyLocationTrackingMode _myLocationTrackingMode = MyLocationTrackingMode.Tracking;
   CameraTargetBounds _cameraTargetBounds = CameraTargetBounds.unbounded;
   MinMaxZoomPreference _minMaxZoomPreference = MinMaxZoomPreference.unbounded;
   bool _compassEnabled = true;
   bool _zoomGesturesEnabled = true;
   bool _myLocationEnabled = true;
   bool _rotateGesturesEnabled = false;
-  bool _scrollGesturesEnabled = false;
+  bool _scrollGesturesEnabled = true;
   bool _tiltGesturesEnabled = false;
   CameraPosition _myLocal = _kInitialPosition;
 
@@ -279,11 +279,37 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                             child: Text('Salvar'),
                             onPressed: (){
                               //Salvar no banco de dados
-                              _atualizarPontoBus(_pontoBusMain.id);
-                              Navigator.pop(context);
-                              super.setState(() {
-
-                              });
+                              showDialog(
+                                  context: context,
+                                  builder: (context){
+                                    return StatefulBuilder(
+                                      builder: (context, setState){
+                                        return AlertDialog(
+                                          title: Text(
+                                              "Você tem certeza que deseja fazer esta ação?"
+                                          ),
+                                          actions: <Widget>[
+                                            FlatButton(
+                                              child: Text('Sim'),
+                                              onPressed: () {
+                                                //Salvar no banco de dados
+                                                _atualizarPontoBus(_pontoBusMain.id);
+                                                Navigator.pop(context);
+                                                Navigator.pop(super.context);//OBS: quando fecha tem um bug de teclado
+                                              },
+                                            ),
+                                            FlatButton(
+                                              child: Text('Não'),
+                                              onPressed: (){
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  }
+                              );
                             },
                           ),
                         ],
@@ -934,7 +960,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
               zoomGesturesEnabled: _zoomGesturesEnabled,
               myLocationEnabled: _myLocationEnabled,
               myLocationTrackingMode: _myLocationTrackingMode,
-              myLocationRenderMode: MyLocationRenderMode.GPS,
+              myLocationRenderMode: MyLocationRenderMode.NORMAL,
             ),
             Positioned(
               top: 0,
@@ -998,10 +1024,10 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                   backgroundColor: _colorGPS,
                   onPressed: (){
                     setState(() {
-                      _iconGPS = (_myLocationEnabled)?Icons.gps_off:Icons.gps_fixed;
-                      _colorGPS = (_myLocationEnabled)?Colors.black54:Colors.blue;
-                      _myLocationEnabled = !(_myLocationEnabled);
-                      _scrollGesturesEnabled = !(_scrollGesturesEnabled);
+                      // _iconGPS = (_myLocationEnabled)?Icons.gps_off:Icons.gps_fixed;
+                      // _colorGPS = (_myLocationEnabled)?Colors.black54:Colors.blue;
+                      // _myLocationEnabled = !(_myLocationEnabled);
+                      // _scrollGesturesEnabled = !(_scrollGesturesEnabled);
                       if(_myLocationEnabled){
                         mapController.moveCamera(
                           CameraUpdate.newCameraPosition(_myLocal),
@@ -1072,12 +1098,38 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                   FlatButton(
                                     child: (pontoBusON)?Text('Salvar'):Text('Criar'),
                                     onPressed: (){
-                                      //Salvar no banco de dados
-                                      (pontoBusON)?_atualizarPontoBus(_pontoBusMain.id):_criarPontoBus();
-                                      Navigator.pop(context);
-                                      super.setState(() {
-
-                                      });
+                                      //confirmação
+                                      showDialog(
+                                          context: context,
+                                          builder: (context){
+                                            return StatefulBuilder(
+                                              builder: (context, setState){
+                                                return AlertDialog(
+                                                  title: Text(
+                                                      "Você tem certeza que deseja fazer esta ação?"
+                                                  ),
+                                                  actions: <Widget>[
+                                                    FlatButton(
+                                                      child: Text('Sim'),
+                                                      onPressed: () {
+                                                        //Salvar no banco de dados
+                                                        (pontoBusON)?_atualizarPontoBus(_pontoBusMain.id):_criarPontoBus();
+                                                        Navigator.pop(context);
+                                                        Navigator.pop(super.context);//OBS: quando fecha tem um bug de teclado
+                                                      },
+                                                    ),
+                                                    FlatButton(
+                                                      child: Text('Não'),
+                                                      onPressed: (){
+                                                        Navigator.pop(context);
+                                                      },
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          }
+                                      );
                                     },
                                   ),
                                 ],
