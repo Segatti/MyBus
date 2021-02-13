@@ -562,21 +562,24 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     print(url);
     http.Response result = await http.get(url);
     Map<String, dynamic> valor = jsonDecode(result.body);
-    List<dynamic> rotaJSON = valor['routes'][0]['legs'][0]['steps'];
-    List<dynamic> rotaAUX = new List();
-    List<GeoPoint> pontosRota = new List();
-    for(int i = 0; i < rotaJSON.length; i++) {
-      rotaAUX.add(rotaJSON[i]['intersections']);
-    }
-    for(int i = 0; i < rotaAUX.length; i++) {
-      for(int j = 0; j < rotaAUX[i].length; j++){
-        GeoPoint aux = new GeoPoint(rotaAUX[i][j]['location'][1], rotaAUX[i][j]['location'][0]);
-        pontosRota.add(aux);
+    //print(valor);
+    if(valor['code'] != "InvalidInput"){//Codigo de erro, quando não encontra rota
+      List<dynamic> rotaJSON = valor['routes'][0]['legs'][0]['steps'];
+      List<dynamic> rotaAUX = new List();
+      List<GeoPoint> pontosRota = new List();
+      for(int i = 0; i < rotaJSON.length; i++) {
+        rotaAUX.add(rotaJSON[i]['intersections']);
       }
+      for(int i = 0; i < rotaAUX.length; i++) {
+        for(int j = 0; j < rotaAUX[i].length; j++){
+          GeoPoint aux = new GeoPoint(rotaAUX[i][j]['location'][1], rotaAUX[i][j]['location'][0]);
+          pontosRota.add(aux);
+        }
+      }
+      rotaGerada = pontosRota;
+      calculaTime(rotaGerada);
+      _desenhaRota(rotaGerada);
     }
-    rotaGerada = pontosRota;
-    calculaTime(rotaGerada);
-    _desenhaRota(rotaGerada);
     print("_gerarRota - Fim");
   }
 
@@ -641,9 +644,9 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
         lineOpacity: 0.5,
       ),
     );
-    setState(() {
-      _scrollGesturesEnabled = false;//deixa false para dimuir processamento
-    });
+    // setState(() {
+    //   _scrollGesturesEnabled = false;//deixa false para dimuir processamento
+    // });
     print("_desenhaRota - Fim");
   }
 

@@ -1,4 +1,6 @@
 import 'package:MyBus/telas/Home.dart';
+import 'package:MyBus/telas/Mapa.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'Rotas.dart';
@@ -10,10 +12,13 @@ final ThemeData temaPadrao = ThemeData(
 
 void main(){
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]).then((_) {
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]).then((_) async {
+    FirebaseAuth auth = FirebaseAuth.instance;
+
+    FirebaseUser usuarioLogado = await auth.currentUser();
     runApp(MaterialApp(
       title: "MyBus",
-      home: Home(),
+      home: (usuarioLogado != null)? Mapa() : Home(),
       theme: temaPadrao,
       initialRoute: "/",
       onGenerateRoute: Rotas.gerarRotas,
@@ -21,3 +26,4 @@ void main(){
     ));
   });
 }
+
