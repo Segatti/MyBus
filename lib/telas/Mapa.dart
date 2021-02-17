@@ -30,6 +30,9 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   Color _colorGPS = Colors.blue;
   bool _timerON = false;
   bool _appON = true;
+  String _txtBuscarBus = "Buscar Ponto de Ônibus";
+  Color _corBuscarBus = Color(0xff1ebbd8);
+  bool _onBuscarBus = true;
 
   //Mapa
   MapboxMapController mapController;
@@ -271,8 +274,37 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                           FlatButton(
                             child: Text('Excluir'),
                             onPressed: () {
-                              _deletarPontoBus(_pontoBusMain.id);
-                              Navigator.pop(context);
+                              showDialog(
+                                  context: context,
+                                  builder: (context){
+                                    return StatefulBuilder(
+                                      builder: (context, setState){
+                                        return AlertDialog(
+                                          title: Text(
+                                              "Você tem certeza que deseja fazer esta ação?"
+                                          ),
+                                          actions: <Widget>[
+                                            FlatButton(
+                                              child: Text('Sim'),
+                                              onPressed: () {
+                                                //Salvar no banco de dados
+                                                _deletarPontoBus(_pontoBusMain.id);
+                                                Navigator.pop(context);
+                                                Navigator.pop(super.context);
+                                              },
+                                            ),
+                                            FlatButton(
+                                              child: Text('Não'),
+                                              onPressed: (){
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  }
+                              );
                             },
                           ),
                           FlatButton(
@@ -653,6 +685,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   void _apagaRota(){
     print("_apagaRota - Inicio");
     mapController.clearLines();
+    rotaGerada = [];
     print("_apagaRota - Fim");
   }
 
@@ -998,13 +1031,26 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                     : EdgeInsets.all(10),
                 child: RaisedButton(
                     child: Text(
-                      "Buscar Ponto de Ônibus",
+                      _txtBuscarBus,
                       style: TextStyle(color: Colors.white, fontSize: 20),
                     ),
-                    color: Color(0xff1ebbd8),
+                    color: _corBuscarBus,
                     padding: EdgeInsets.fromLTRB(32, 16, 32, 16),
                     onPressed: (){
-                      _buscarPonto();
+                      print("Rota gerada:");
+                      print(rotaGerada);
+                      (_onBuscarBus)?_buscarPonto():_apagaRota();
+                      setState(() {
+                        if(_onBuscarBus){
+                          _onBuscarBus = false;
+                          _corBuscarBus = Colors.red;
+                          _txtBuscarBus = "Apagar Rota";
+                        }else{
+                          _onBuscarBus = true;
+                          _txtBuscarBus = "Buscar Ponto de Ônibus";
+                          _corBuscarBus = Color(0xff1ebbd8);
+                        }
+                      });
                     }
                 ),
               ),
@@ -1094,8 +1140,37 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                   FlatButton(
                                     child: (pontoBusON)?Text('Excluir'):Text('Cancelar'),
                                     onPressed: () {
-                                      if(pontoBusON)_deletarPontoBus(_pontoBusMain.id);
-                                      Navigator.pop(context);
+                                      showDialog(
+                                          context: context,
+                                          builder: (context){
+                                            return StatefulBuilder(
+                                              builder: (context, setState){
+                                                return AlertDialog(
+                                                  title: Text(
+                                                      "Você tem certeza que deseja fazer esta ação?"
+                                                  ),
+                                                  actions: <Widget>[
+                                                    FlatButton(
+                                                      child: Text('Sim'),
+                                                      onPressed: () {
+                                                        //Salvar no banco de dados
+                                                        if(pontoBusON)_deletarPontoBus(_pontoBusMain.id);
+                                                        Navigator.pop(context);
+                                                        Navigator.pop(super.context);
+                                                      },
+                                                    ),
+                                                    FlatButton(
+                                                      child: Text('Não'),
+                                                      onPressed: (){
+                                                        Navigator.pop(context);
+                                                      },
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          }
+                                      );
                                     },
                                   ),
                                   FlatButton(

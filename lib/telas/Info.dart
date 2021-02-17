@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
-class Info extends StatefulWidget {
-  @override
-  _InfoState createState() => _InfoState();
-}
-
-class _InfoState extends State<Info> {
+class Info extends StatelessWidget {
 
   _criarLinhaTable(String listaNomes) {
     return TableRow(

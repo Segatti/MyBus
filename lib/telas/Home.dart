@@ -1,90 +1,81 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:MyBus/model/Usuario.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class Home extends StatefulWidget {
-  @override
-  _HomeState createState() => _HomeState();
-}
+class Home extends StatelessWidget {
+  final TextEditingController _controllerEmail = TextEditingController();
+  final TextEditingController _controllerSenha = TextEditingController();
 
-class _HomeState extends State<Home> {
-
-  TextEditingController _controllerEmail = TextEditingController(text: "");
-  TextEditingController _controllerSenha = TextEditingController(text: "");
-  String _mensagemErro = "";
-  bool _carregando = false;
-
-  _validarCampos(){
-
+  _validarCampos(BuildContext context) {
     //Recuperar dados dos campos
     String email = _controllerEmail.text;
     String senha = _controllerSenha.text;
 
     //validar campos
-    if( email.isNotEmpty && email.contains("@") ){
-
-      if( senha.isNotEmpty && senha.length > 6 ){
-
-        Usuario usuario = Usuario();
-        usuario.email = email;
-        usuario.senha = senha;
-
-        _logarUsuario( usuario );
-
-      }else{
-        setState(() {
-          _mensagemErro = "Preencha a senha! digite mais de 6 caracteres";
-        });
-      }
-
-    }else{
-      setState(() {
-        _mensagemErro = "Preencha o E-mail válido";
-      });
+    if ((email.isNotEmpty && email.contains("@")) && senha.length > 6) {
+      Usuario usuario = Usuario();
+      usuario.email = email;
+      usuario.senha = senha;
+      _logarUsuario(usuario, context);
+    } else {
+      _showMyDialog(context, false);
     }
-
   }
 
-  _logarUsuario( Usuario usuario ){
+  Future<void> _showMyDialog(BuildContext context, bool errado) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Atenção'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                (errado)?Text('Email ou Senha incorretos.'):Text('Por favor, digite um email e senha validos.'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Confirmar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-    setState(() {
-      _carregando = true;
-    });
-
+  _logarUsuario(Usuario usuario, BuildContext context) {
     FirebaseAuth auth = FirebaseAuth.instance;
 
     auth.signInWithEmailAndPassword(
         email: usuario.email,
         password: usuario.senha
-    ).then((firebaseUser){
-
+    ).then((firebaseUser) {
       print('entrou');
-      _redirecionaPainelPorTipoUsuario( firebaseUser.user.uid );
-
-    }).catchError((error){
-      _mensagemErro = "Erro ao autenticar usuário, verifique e-mail e senha e tente novamente!";
+      _redirecionaPainelPorTipoUsuario(firebaseUser.user.uid, context);
+    }).catchError((error) {
+      _showMyDialog(context, true);
     });
-
   }
 
-  _redirecionaPainelPorTipoUsuario(String idUsuario) async {
-
+  _redirecionaPainelPorTipoUsuario(String idUsuario,
+      BuildContext context) async {
     Firestore db = Firestore.instance;
 
     DocumentSnapshot snapshot = await db.collection("usuarios")
-          .document( idUsuario )
-          .get();
+        .document(idUsuario)
+        .get();
 
     Map<String, dynamic> dados = snapshot.data;
     String tipoUsuario = dados["tipoUsuario"];
 
-    setState(() {
-      _carregando = false;
-    });
-
-    switch( tipoUsuario ){
+    switch (tipoUsuario) {
       case "usuario" :
         Navigator.pushReplacementNamed(context, "/mapa");
         break;
@@ -92,32 +83,6 @@ class _HomeState extends State<Home> {
         Navigator.pushReplacementNamed(context, "/mapa-admin");
         break;
     }
-
-  }
-
-  _verificarUsuarioLogado() async {
-
-    FirebaseAuth auth = FirebaseAuth.instance;
-
-    FirebaseUser usuarioLogado = await auth.currentUser();
-    if( usuarioLogado != null ){
-      String idUsuario = usuarioLogado.uid;
-      _redirecionaPainelPorTipoUsuario(idUsuario);
-    }
-
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _recuperaUltimaLocalizacaoConhecida();
-    _verificarUsuarioLogado();
-  }
-
-  void _recuperaUltimaLocalizacaoConhecida() async {
-    print("_recuperaUltimaLocalizacaoConhecida() - Inicio");
-    await Geolocator().getLastKnownPosition(desiredAccuracy: LocationAccuracy.high);
-    print("_recuperaUltimaLocalizacaoConhecida() - Fim");
   }
 
   @override
@@ -125,10 +90,10 @@ class _HomeState extends State<Home> {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          image: DecorationImage(
-              image: AssetImage("images/fundo.png"),
-              fit: BoxFit.cover
-          )
+            image: DecorationImage(
+                image: AssetImage("images/fundo.png"),
+                fit: BoxFit.cover
+            )
         ),
         padding: EdgeInsets.all(16),
         child: Center(
@@ -139,7 +104,7 @@ class _HomeState extends State<Home> {
                 Padding(
                   padding: EdgeInsets.only(bottom: 32),
                   child: Image.asset(
-                      "images/logo.png",
+                    "images/logo.png",
                     width: 200,
                     height: 150,
                   ),
@@ -177,40 +142,28 @@ class _HomeState extends State<Home> {
                 Padding(
                   padding: EdgeInsets.only(top: 16, bottom: 10),
                   child: RaisedButton(
-                    child: Text(
+                      child: Text(
                         "Entrar",
-                      style: TextStyle(color: Colors.white, fontSize: 20),
-                    ),
+                        style: TextStyle(color: Colors.white, fontSize: 20),
+                      ),
                       color: Color(0xff1ebbd8),
                       padding: EdgeInsets.fromLTRB(32, 16, 32, 16),
-                      onPressed: (){
-                        _validarCampos();
+                      onPressed: () {
+                        _validarCampos(context);
                       }
                   ),
                 ),
                 Center(
                   child: GestureDetector(
                     child: Text(
-                        "Não tem conta? cadastre-se!",
+                      "Não tem conta? cadastre-se!",
                       style: TextStyle(color: Colors.white),
                     ),
-                    onTap: (){
+                    onTap: () {
                       Navigator.pushNamed(context, "/cadastro");
                     },
                   ),
                 ),
-                _carregando
-                    ? Center(child: CircularProgressIndicator(backgroundColor: Colors.white,),)
-                    : Container(),
-                Padding(
-                  padding: EdgeInsets.only(top: 16),
-                  child: Center(
-                    child: Text(
-                      _mensagemErro,
-                      style: TextStyle(color: Colors.red, fontSize: 20),
-                    ),
-                  ),
-                )
               ],
             ),
           ),
@@ -219,3 +172,4 @@ class _HomeState extends State<Home> {
     );
   }
 }
+
