@@ -33,6 +33,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   String _txtBuscarBus = "Buscar Ponto de Ônibus";
   Color _corBuscarBus = Color(0xff1ebbd8);
   bool _onBuscarBus = true;
+  String _txtPontoCA = "Confirma que existe este ponto de ônibus?";
+  String _txtPontoD = "Confirma que não existe mais este ponto de ônibus?";
 
   //Mapa
   MapboxMapController mapController;
@@ -281,7 +283,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                       builder: (context, setState){
                                         return AlertDialog(
                                           title: Text(
-                                              "Você tem certeza que deseja fazer esta ação?"
+                                              _txtPontoD
                                           ),
                                           actions: <Widget>[
                                             FlatButton(
@@ -318,7 +320,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                       builder: (context, setState){
                                         return AlertDialog(
                                           title: Text(
-                                              "Você tem certeza que deseja fazer esta ação?"
+                                              _txtPontoCA
                                           ),
                                           actions: <Widget>[
                                             FlatButton(
@@ -1140,14 +1142,14 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                   FlatButton(
                                     child: (pontoBusON)?Text('Excluir'):Text('Cancelar'),
                                     onPressed: () {
-                                      showDialog(
+                                      (pontoBusON)?showDialog(
                                           context: context,
                                           builder: (context){
                                             return StatefulBuilder(
                                               builder: (context, setState){
                                                 return AlertDialog(
                                                   title: Text(
-                                                      "Você tem certeza que deseja fazer esta ação?"
+                                                      _txtPontoD
                                                   ),
                                                   actions: <Widget>[
                                                     FlatButton(
@@ -1170,7 +1172,8 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                               },
                                             );
                                           }
-                                      );
+                                      )
+                                          : Navigator.pop(context);
                                     },
                                   ),
                                   FlatButton(
@@ -1184,7 +1187,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                                               builder: (context, setState){
                                                 return AlertDialog(
                                                   title: Text(
-                                                      "Você tem certeza que deseja fazer esta ação?"
+                                                    _txtPontoCA
                                                   ),
                                                   actions: <Widget>[
                                                     FlatButton(
