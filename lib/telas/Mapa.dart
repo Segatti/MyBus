@@ -39,7 +39,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   //Mapa
   MapboxMapController mapController;
   static final CameraPosition _kInitialPosition = const CameraPosition(target: LatLng(0, 0), zoom: 13.0);
-  String _styleString = MapboxStyles.MAPBOX_STREETS;
+  String _styleString = "mapbox://styles/mybusprojeto/cklsrgqne1qoo17qlj57b6fwv";
   MyLocationTrackingMode _myLocationTrackingMode = MyLocationTrackingMode.Tracking;
   CameraTargetBounds _cameraTargetBounds = CameraTargetBounds.unbounded;
   MinMaxZoomPreference _minMaxZoomPreference = MinMaxZoomPreference.unbounded;
@@ -458,7 +458,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
         }else if(documentChange.type == DocumentChangeType.modified){//Registro Atualizado
           String id = documentChange.document.documentID;
           dadosListen[id] = documentChange.document.data;
-          iconImage = (dadosListen[id]['tipo'] == 'taxi')?'car-11':'car-15';//taxi ou bus
+          iconImage = (dadosListen[id]['tipo'] == 'taxi')?'car-15':'bus-15';//taxi ou bus
           await controller.updateSymbol(
             dadosSymbol[id],
             SymbolOptions(
