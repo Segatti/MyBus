@@ -49,7 +49,7 @@ class Info extends StatelessWidget {
                   _criarLinhaTable("MyBus"),
                   _criarLinhaTable(""),
                   _criarLinhaTable("Periodo de desenvolvimento"),
-                  _criarLinhaTable("2020"),
+                  _criarLinhaTable("2019-2020"),
                   _criarLinhaTable(""),
                   _criarLinhaTable("Participantes"),
                   _criarLinhaTable("Aluno: Vittor Feitosa (vittor_segatti@unifesspa.edu.br), Professores: Nadson (nadsonwelkson@unifesspa.edu.br) e Gleison (gleison@unifesspa.edu.br)"),

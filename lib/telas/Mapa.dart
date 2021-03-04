@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mapbox_gl/mapbox_gl.dart';
 import 'package:geolocator/geolocator.dart';
@@ -17,6 +18,7 @@ class Mapa extends StatefulWidget {
 class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
   //Geral//flutter
+  String idUser;
   String _myPoint = "Eu -> Ponto: ∞";
   GeoPoint _meuGeoPoint;
   double _meuSpeed = 1;
@@ -76,7 +78,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   Transporte _busMainFila;
   Transporte _meuTransporte;
 
-  TextEditingController _nomeBus = TextEditingController();
+  //TextEditingController _nomeBus = TextEditingController();
   TextEditingController _rotaBus = TextEditingController();
   bool _tipo = false;
   bool _transporteON = false;
@@ -87,7 +89,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
 
   bool _infoTransporteON;
   bool _filaEspera;
-  bool _busON;
+  bool _busON = false;
   bool changeBus = false;
 
 
@@ -98,6 +100,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     WidgetsBinding.instance.addObserver(this);
     _recuperaUltimaLocalizacaoConhecida();
     _adicionarListenerLocalizacao();
+    getIDUser();
     print("initState() - Fim");
   }
 
@@ -154,6 +157,12 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     WidgetsBinding.instance.removeObserver(this);
     print("dispose - Fim");
     super.dispose();
+  }
+
+  void getIDUser() async{
+    FirebaseAuth auth = FirebaseAuth.instance;
+    FirebaseUser user = await auth.currentUser();
+    idUser = user.uid;
   }
 
   void _onMapCreated(MapboxMapController controller) {
@@ -377,13 +386,13 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: <Widget>[
-                              TextField(
-                                decoration: InputDecoration(
-                                    labelText: "Nome do Transporte"
-                                ),
-                                controller: _auxT,
-                                readOnly: true,
-                              ),
+                              // TextField(
+                              //   decoration: InputDecoration(
+                              //       labelText: "Nome do Transporte"
+                              //   ),
+                              //   controller: _auxT,
+                              //   readOnly: true,
+                              // ),
                               TextField(
                                 decoration: InputDecoration(
                                     labelText: "Tipo do Transporte"
@@ -432,8 +441,9 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     firestore.collection('transporte').snapshots().listen((snapshot) {
       snapshot.documentChanges.forEach((documentChange) async {
         if(documentChange.type == DocumentChangeType.added){//Registro Adicionado
-          if((Timestamp.now().seconds - documentChange.document.data['timeStamp'].seconds) < 600){//Só carrega transporte com timestamp menor que 10 minutos
+          // if((Timestamp.now().seconds - documentChange.document.data['timeStamp'].seconds) < 600){//Só carrega transporte com timestamp menor que 10 minutos
             String id = documentChange.document.documentID;
+            print(id);
             dadosListen.putIfAbsent(id, () => documentChange.document.data);
             iconImage = "";
             Symbol symbol = await controller.addSymbol(
@@ -443,7 +453,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                   dadosListen[id]['geoPoint'].longitude,
                 ),
                 iconImage: iconImage,
-                iconSize: 1.3,
+                iconSize: 1.1,
                 iconAnchor: 'bottom',
                 //textField: dadosListen[id]['nome'],//Lembrar de comentar isso aqui----------------------------------------
                 textAnchor: 'top',
@@ -451,42 +461,49 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
             );
             dadosSymbol.putIfAbsent(id, () => symbol);
             print("Dado adicionado a lista! ${dadosListen[id]}");
-          }else if((Timestamp.now().seconds - documentChange.document.data['timeStamp'].seconds) >= 1800){//Se o dados estiver velho(30 min), então deleta do firebase
-            Transporte transporte = new Transporte(documentChange.document.documentID);
-            transporte.delete();
-          }
+          // }else if((Timestamp.now().seconds - documentChange.document.data['timeStamp'].seconds) >= 1800){//Se o dados estiver velho(30 min), então deleta do firebase
+          //   Transporte transporte = new Transporte(documentChange.document.documentID);
+          //   transporte.delete();
+          // }
         }else if(documentChange.type == DocumentChangeType.modified){//Registro Atualizado
           String id = documentChange.document.documentID;
           dadosListen[id] = documentChange.document.data;
-          iconImage = (dadosListen[id]['tipo'] == 'taxi')?'car-15':'bus-15';//taxi ou bus
-          await controller.updateSymbol(
-            dadosSymbol[id],
-            SymbolOptions(
-              geometry: LatLng(
-                dadosListen[id]['geoPoint'].latitude,
-                dadosListen[id]['geoPoint'].longitude,
+          if(id != idUser){
+            iconImage = (dadosListen[id]['tipo'] == 'taxi')?'car-15':'bus-15';//taxi ou bus
+            await controller.updateSymbol(
+              dadosSymbol[id],
+              SymbolOptions(
+                geometry: LatLng(
+                  dadosListen[id]['geoPoint'].latitude,
+                  dadosListen[id]['geoPoint'].longitude,
+                ),
+                iconImage: iconImage,
+                iconSize: 1.1,
+                iconAnchor: 'bottom',
+                textField: dadosListen[id]['nome'],
+                textAnchor: 'top',
               ),
-              iconImage: iconImage,
-              iconSize: 1.3,
-              iconAnchor: 'bottom',
-              textField: dadosListen[id]['nome'],
-              textAnchor: 'top',
-            ),
-          );
-
-          if(_infoTransporteON){//Atualiza as informações quando aberto a aba de informações do transporte
-            dadosSymbol.forEach((id, symbol) {
-             if(symbol.id == _selectedSymbol.id){
-               setState(() {
-                 _auxT.text = dadosListen[id]['nome'];
-                 _auxTipo.text = (marcadorOnibus[id]['tipo'] == 'bus')?'Ônibus':'Taxi-Lotação';
-                 _auxRota.text = dadosListen[id]['rota'];
-                 changeBus = true;
-               });
-               print("Informações atualizadas!");
-             }
-            });
+            );
           }
+
+          try{
+            if(_infoTransporteON){//Atualiza as informações quando aberto a aba de informações do transporte
+              dadosSymbol.forEach((id, symbol) {
+                if(symbol.id == _selectedSymbol.id){
+                  setState(() {
+                    _auxT.text = dadosListen[id]['nome'];
+                    _auxTipo.text = (marcadorOnibus[id]['tipo'] == 'bus')?'Ônibus':'Taxi-Lotação';
+                    _auxRota.text = dadosListen[id]['rota'];
+                    changeBus = true;
+                  });
+                  print("Informações atualizadas!");
+                }
+              });
+            }
+          }catch(error){
+            print(error);
+          }
+
           print("Dado atualizado na lista! ${dadosListen[id]}");
         }else if(documentChange.type == DocumentChangeType.removed){//Registro Removido
           String id = documentChange.document.documentID;
@@ -694,8 +711,9 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   Future<void> _criarTransporte() async {
     print("_criarTransporte - Inicio");
     _apagaRota();
-    _filaEspera = await _verificaBusProximo();
-    _meuTransporte = new Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
+    _filaEspera = (_busON)?false:await _verificaBusProximo();
+    String nome = (_tipo)?'Taxi Lot.':'Ônibus';
+    _meuTransporte = new Transporte('', nome, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
     if(!_filaEspera){
       print("Ônibus ON!!!");
       _meuTransporte.create();
@@ -711,12 +729,14 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
   Future<void> _atualizarTransporte() async {
     print("_atualizarTransporte - Inicio");
     if(_busON){
-      _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
+      String nome = (_tipo)?'Taxi Lot.':'Ônibus';
+      _meuTransporte = Transporte('', nome, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
       _meuTransporte.update();
     }else{
       _filaEspera = await _verificaBusProximo();
       if(!_filaEspera){
-        _meuTransporte = Transporte('', _nomeBus.text, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
+        String nome = (_tipo)?'Taxi Lot.':'Ônibus';
+        _meuTransporte = Transporte('', nome, (_tipo)?'taxi':'bus', _rotaBus.text, _meuGeoPoint);
         _meuTransporte.create();
         _busON = true;
       }
@@ -902,26 +922,60 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
-                      TextField(
-                        decoration: InputDecoration(
-                            labelText: 'Nome do transporte'
-                        ),
-                        controller: _nomeBus,
-                      ),
+                      // TextField(
+                      //   decoration: InputDecoration(
+                      //       labelText: 'Nome do transporte'
+                      //   ),
+                      //   controller: _nomeBus,
+                      // ),
+                      // Padding(
+                      //   padding: EdgeInsets.only(bottom: 10),
+                      //   child: Row(
+                      //     children: <Widget>[
+                      //       Text("Ônibus"),
+                      //       Switch(
+                      //           value: _tipo,
+                      //           onChanged: (bool valor){
+                      //             setState(() {
+                      //               _tipo = valor;
+                      //             });
+                      //           }
+                      //       ),
+                      //       Text("Taxi Lotação"),
+                      //     ],
+                      //   ),
+                      // ),
                       Padding(
-                        padding: EdgeInsets.only(bottom: 10),
+                        padding: EdgeInsets.fromLTRB(0, 10, 0, 10),
                         child: Row(
-                          children: <Widget>[
-                            Text("Ônibus"),
-                            Switch(
-                                value: _tipo,
-                                onChanged: (bool valor){
-                                  setState(() {
-                                    _tipo = valor;
-                                  });
-                                }
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.only(right: 10),
+                                child: RaisedButton(
+                                    child: Text("Ônibus"),
+                                    color: (_tipo)?Colors.red:Colors.green,
+                                    onPressed: () {
+                                      print("click");
+                                      setState(() {
+                                        _tipo = false;
+                                      });
+                                    }),
+                              ),
                             ),
-                            Text("Taxi Lotação"),
+                            Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(left: 10),
+                                  child: RaisedButton(
+                                      child: Text("Taxi Lot."),
+                                      color: (_tipo)?Colors.green:Colors.red,
+                                      onPressed: (){
+                                        setState(() {
+                                          _tipo = true;
+                                        });
+                                      }),
+                                ))
                           ],
                         ),
                       ),
