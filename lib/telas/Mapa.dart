@@ -441,7 +441,7 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
     firestore.collection('transporte').snapshots().listen((snapshot) {
       snapshot.documentChanges.forEach((documentChange) async {
         if(documentChange.type == DocumentChangeType.added){//Registro Adicionado
-          // if((Timestamp.now().seconds - documentChange.document.data['timeStamp'].seconds) < 600){//Só carrega transporte com timestamp menor que 10 minutos
+          if((Timestamp.now().seconds - documentChange.document.data['timeStamp'].seconds) < 600){//Só carrega transporte com timestamp menor que 10 minutos
             String id = documentChange.document.documentID;
             print(id);
             dadosListen.putIfAbsent(id, () => documentChange.document.data);
@@ -461,10 +461,10 @@ class _MapaState extends State<Mapa> with WidgetsBindingObserver{
             );
             dadosSymbol.putIfAbsent(id, () => symbol);
             print("Dado adicionado a lista! ${dadosListen[id]}");
-          // }else if((Timestamp.now().seconds - documentChange.document.data['timeStamp'].seconds) >= 1800){//Se o dados estiver velho(30 min), então deleta do firebase
-          //   Transporte transporte = new Transporte(documentChange.document.documentID);
-          //   transporte.delete();
-          // }
+          }else if((Timestamp.now().seconds - documentChange.document.data['timeStamp'].seconds) >= 1800){//Se o dados estiver velho(30 min), então deleta do firebase
+            Transporte transporte = new Transporte(documentChange.document.documentID);
+            transporte.delete();
+          }
         }else if(documentChange.type == DocumentChangeType.modified){//Registro Atualizado
           String id = documentChange.document.documentID;
           dadosListen[id] = documentChange.document.data;
