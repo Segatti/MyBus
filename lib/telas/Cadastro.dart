@@ -349,6 +349,15 @@ class _CadastroState extends State<Cadastro> {
                   ),
                 ),
                 Padding(
+                  padding: EdgeInsets.fromLTRB(0,10,0,10),
+                  child: Center(
+                    child: Text(
+                      _mensagemErro,
+                      style: TextStyle(color: Colors.red, fontSize: 20),
+                    ),
+                  ),
+                ),
+                Padding(
                   padding: EdgeInsets.only(top: 16, bottom: 10),
                   child: RaisedButton(
                       child: Text(
@@ -362,15 +371,6 @@ class _CadastroState extends State<Cadastro> {
                       }
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.only(top: 16),
-                  child: Center(
-                    child: Text(
-                      _mensagemErro,
-                      style: TextStyle(color: Colors.red, fontSize: 20),
-                    ),
-                  ),
-                )
               ],
             ),
           ),
